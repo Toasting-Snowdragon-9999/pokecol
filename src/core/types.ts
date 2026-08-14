@@ -90,4 +90,9 @@ export interface CardProvider {
   listSets(signal?: AbortSignal): Promise<CardSet[]>;
   /** Resolves collection entries back into cards. Batches internally. */
   getCardsByIds(ids: string[], signal?: AbortSignal): Promise<Card[]>;
+  /**
+   * Every card in a set, in printed order — the roster completion is measured
+   * against, and what lets an empty pocket know which card belongs in it.
+   */
+  getSetCards(setId: string, signal?: AbortSignal): Promise<Card[]>;
 }

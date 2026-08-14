@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { Card } from "../../core/types";
 import { Pocket } from "./Pocket";
+import { SetProgress } from "./SetProgress";
 import type { BinderSheetData } from "./useBinderPages";
 import styles from "./binder.module.css";
 
@@ -59,6 +60,10 @@ export const BinderSheet = memo(function BinderSheet({
           sheet.note && <span className={styles.sheetSpare}>{sheet.note}</span>
         )}
       </header>
+
+      {sheet.completion && sheet.completion.total > 0 && (
+        <SetProgress completion={sheet.completion} />
+      )}
 
       <div className={styles.pockets}>
         {sheet.slots.map((slot, index) => (

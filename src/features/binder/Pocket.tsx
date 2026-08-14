@@ -17,9 +17,30 @@ interface PocketProps {
  * rather than as missing UI.
  */
 export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: PocketProps) {
-  const { card, quantity, variantCount } = slot;
+  const { card, quantity, variantCount, missingCard } = slot;
 
   if (!card) {
+    /*
+     * A gap whose card is known: clickable, showing only its number. The
+     * restraint is deliberate — a mostly-empty set page would be unreadable if
+     * every hole shouted, so this is a faint numeral and nothing else until
+     * you actually reach for it.
+     */
+    if (missingCard) {
+      return (
+        <button
+          type="button"
+          className={`${styles.pocket} ${styles.pocketEmpty} ${styles.pocketMissing}`}
+          onClick={() => onOpen(missingCard)}
+          tabIndex={interactive ? 0 : -1}
+          aria-label={`Missing: ${missingCard.name}, number ${missingCard.number}. View card.`}
+        >
+          <span className={styles.missingNumber} aria-hidden="true">
+            {missingCard.number}
+          </span>
+        </button>
+      );
+    }
     return <div className={`${styles.pocket} ${styles.pocketEmpty}`} aria-hidden="true" />;
   }
 

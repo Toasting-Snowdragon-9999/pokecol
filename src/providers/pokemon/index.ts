@@ -1,5 +1,12 @@
 import type { Card, CardProvider, CardSearchParams, CardSet, Paged } from "../../core/types";
-import { buildQuery, getCardsByIds, listSets, MAX_PAGE_SIZE, searchCards } from "./api";
+import {
+  buildQuery,
+  getCardsByIds,
+  getSetCards,
+  listSets,
+  MAX_PAGE_SIZE,
+  searchCards,
+} from "./api";
 
 /**
  * Browsing with no search term still needs a `q` (the API 502s without one), so
@@ -43,5 +50,9 @@ export const pokemonProvider: CardProvider = {
 
   getCardsByIds(ids: string[], signal?: AbortSignal): Promise<Card[]> {
     return getCardsByIds(ids, signal);
+  },
+
+  getSetCards(setId: string, signal?: AbortSignal): Promise<Card[]> {
+    return getSetCards(setId, signal);
   },
 };

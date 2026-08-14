@@ -7,6 +7,8 @@ import type { Card } from "../../core/types";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { Binder } from "./Binder";
 import { useBinderPages } from "./useBinderPages";
+import type { BinderView } from "./useBinderPages";
+import { useSetRosters } from "./useSetRosters";
 import styles from "./BinderPage.module.css";
 
 /** Below this, a two-page spread can't hold readable 3x3 grids. */
@@ -17,6 +19,11 @@ export function BinderPage() {
   const { cards, loading, error, retry } = useCollectionCards();
   const singlePage = useMediaQuery(SINGLE_PAGE_QUERY);
   const [openCard, setOpenCard] = useState<Card | null>(null);
+  const [view, setView] = useState<BinderView>("owned");
+
+  // Only the sets actually started — rosters are several requests each.
+  const setIds = useMemo(() => [...new Set(cards.map((card) => card.set.id))], [cards]);
+  const rosters = useSetRosters(setIds, cards.length > 0);
 
   const counts = useMemo(
     () => ({
@@ -26,7 +33,7 @@ export function BinderPage() {
     [quantityOf, variantsOwned],
   );
 
-  const { spreads } = useBinderPages(cards, counts, singlePage);
+  const { spreads } = useBinderPages(cards, counts, singlePage, view, rosters);
 
   if (error && cards.length === 0) {
     return (
@@ -54,6 +61,9 @@ export function BinderPage() {
         singlePage={singlePage}
         onOpenCard={setOpenCard}
         empty={cards.length === 0}
+        view={view}
+        onViewChange={setView}
+        showViewToggle={cards.length > 0}
       />
       <CardDetailModal card={openCard} onClose={() => setOpenCard(null)} />
     </div>

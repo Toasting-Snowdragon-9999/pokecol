@@ -216,6 +216,52 @@
   flex-shrink: 0;
 }
 
+/* --- set progress, printed on the page --- */
+
+.progress {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(var(--page-pad) * -0.2);
+  display: grid;
+  gap: calc(var(--sheet-w) * 0.011);
+}
+
+.progressRule {
+  height: calc(var(--sheet-w) * 0.008);
+  min-height: 2px;
+  border-radius: 999px;
+  background: #00000018;
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8a7a3f, #b8a05a);
+  transition: width 320ms ease;
+}
+
+.progressText {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--sheet-w) * 0.014);
+  font-size: calc(var(--sheet-w) * 0.024);
+  color: #7d7462;
+  font-variant-numeric: tabular-nums;
+}
+
+.progressCount {
+  font-weight: 700;
+  color: #4a4436;
+}
+
+.progressSecret {
+  margin-left: auto;
+  color: #8a7a3f;
+  font-weight: 600;
+}
+
 /* --- pockets --- */
 
 .pockets {
@@ -309,6 +355,38 @@
 
 .pocketEmpty::after {
   opacity: 0.5;
+}
+
+/* A gap whose card is known. Reads as an empty sleeve with a pencilled-in
+   number, not as a call to action. */
+.pocketMissing {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: box-shadow 160ms ease;
+}
+
+.missingNumber {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-label);
+  font-size: calc(var(--sheet-w) * 0.038);
+  font-weight: 700;
+  /* Page ink rather than white — the sleeve is a mid beige, so a light numeral
+     vanishes into it. Still quiet enough not to shout on a mostly-empty page. */
+  color: rgb(74 68 54 / 0.38);
+  text-shadow: 0 1px 0 #ffffff1f;
+}
+
+.pocketMissing:hover {
+  box-shadow:
+    inset 0 2px 5px #00000059,
+    inset 0 0 0 1px var(--accent),
+    0 1px 0 #ffffff26;
+}
+
+.pocketMissing:hover .missingNumber {
+  color: rgb(74 68 54 / 0.75);
 }
 
 .cardButton {
@@ -433,6 +511,38 @@
 
 .edge:disabled {
   cursor: default;
+}
+
+/* --- layout toggle above the binder --- */
+
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.viewOption {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.viewOption:hover {
+  color: var(--text);
+}
+
+.viewOptionActive {
+  background: var(--bg-sunken);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 /* --- controls below the binder --- */

@@ -1,8 +1,19 @@
 import { useMemo } from "react";
 import type { Card, CardSet } from "../../core/types";
+import { naturalCompare } from "../../lib/sortCards";
+import { computeSetCompletion } from "./setCompletion";
+import type { SetCompletion } from "./setCompletion";
+import type { SetRosters } from "./useSetRosters";
 
 /** Classic binder page: three rows of three sleeves. */
 export const POCKETS_PER_SHEET = 9;
+
+/**
+ * `owned` shows only what you have, packed tight — the original behaviour and
+ * still the default. `full` lays out a set's whole roster so an empty pocket
+ * sits at the real position of the card that's missing from it.
+ */
+export type BinderView = "owned" | "full";
 
 export interface BinderSlot {
   card: Card | null;
@@ -10,6 +21,11 @@ export interface BinderSlot {
   quantity: number;
   /** Distinct printings owned. >1 renders the sleeve as a small stack. */
   variantCount: number;
+  /**
+   * In `full` view an empty pocket still knows which card belongs there, so it
+   * can be inspected and added. `card` stays null — nothing is owned yet.
+   */
+  missingCard?: Card;
 }
 
 export interface BinderSheetData {
@@ -22,6 +38,8 @@ export interface BinderSheetData {
   sheetsInSet: number;
   /** Header text for a set-less sheet. Omitted on a brand-new empty binder. */
   note?: string;
+  /** Progress through this sheet's set. Absent on set-less spare sheets. */
+  completion?: SetCompletion;
   slots: BinderSlot[];
 }
 
@@ -62,7 +80,12 @@ export interface SlotCounts {
   variantCountOf: (cardId: string) => number;
 }
 
-export function buildSheets(cards: Card[], counts: SlotCounts): BinderSheetData[] {
+export function buildSheets(
+  cards: Card[],
+  counts: SlotCounts,
+  view: BinderView = "owned",
+  rosters?: SetRosters,
+): BinderSheetData[] {
   const sheets: BinderSheetData[] = [];
 
   let index = 0;
@@ -75,13 +98,36 @@ export function buildSheets(cards: Card[], counts: SlotCounts): BinderSheetData[
       index++;
     }
 
-    const groupSheets = chunk(group, POCKETS_PER_SHEET);
+    const roster = rosters?.get(set.id);
+    const completion = computeSetCompletion(set.id, set.printedTotal, group, roster);
+
+    /*
+     * In full-set view the roster drives the layout and owned cards are slotted
+     * into their real positions, so a gap sits exactly where the missing card
+     * belongs. Without a roster (still loading, or the fetch failed) this falls
+     * back to the owned layout rather than showing nothing.
+     */
+    const owned = new Map(group.map((card) => [card.id, card]));
+    const layout: Card[] =
+      view === "full" && roster
+        ? [...roster].sort((a, b) => naturalCompare(a.number, b.number))
+        : group;
+
+    const groupSheets = chunk(layout, POCKETS_PER_SHEET);
     groupSheets.forEach((sheetCards, sheetIndex) => {
-      const slots: BinderSlot[] = sheetCards.map((card) => ({
-        card,
-        quantity: counts.quantityOf(card.id),
-        variantCount: counts.variantCountOf(card.id),
-      }));
+      const slots: BinderSlot[] = sheetCards.map((card) => {
+        const held = owned.get(card.id);
+        if (!held) {
+          // A known gap: the pocket is empty but can still say what goes in it.
+          return { card: null, quantity: 0, variantCount: 0, missingCard: card };
+        }
+        return {
+          card: held,
+          quantity: counts.quantityOf(card.id),
+          variantCount: counts.variantCountOf(card.id),
+        };
+      });
+
       // Pad the set's last sheet so the 3x3 grid always holds nine pockets.
       while (slots.length < POCKETS_PER_SHEET) {
         slots.push({ card: null, quantity: 0, variantCount: 0 });
@@ -92,6 +138,7 @@ export function buildSheets(cards: Card[], counts: SlotCounts): BinderSheetData[
         set,
         sheetInSet: sheetIndex + 1,
         sheetsInSet: groupSheets.length,
+        completion,
         slots,
       });
     });
@@ -131,8 +178,17 @@ export function buildSpreads(sheets: BinderSheetData[], singlePage: boolean): Bi
   return spreads;
 }
 
-export function useBinderPages(cards: Card[], counts: SlotCounts, singlePage: boolean) {
-  const sheets = useMemo(() => buildSheets(cards, counts), [cards, counts]);
+export function useBinderPages(
+  cards: Card[],
+  counts: SlotCounts,
+  singlePage: boolean,
+  view: BinderView = "owned",
+  rosters?: SetRosters,
+) {
+  const sheets = useMemo(
+    () => buildSheets(cards, counts, view, rosters),
+    [cards, counts, view, rosters],
+  );
   const spreads = useMemo(() => buildSpreads(sheets, singlePage), [sheets, singlePage]);
   return { sheets, spreads };
 }

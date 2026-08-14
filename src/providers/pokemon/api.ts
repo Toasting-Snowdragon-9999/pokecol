@@ -127,6 +127,49 @@ export async function listSets(signal?: AbortSignal): Promise<CardSet[]> {
   });
 }
 
+/**
+ * Every card in a set, in printed order.
+ *
+ * Completion needs the real roster: sets are not `1..N`. Secret rares carry
+ * numbers above `printedTotal` (Sword & Shield prints 202 but numbers run to
+ * 216), and some sets use forms like `TG01`, so a synthesised range would be
+ * wrong in both directions.
+ *
+ * Costs `ceil(total / 60)` requests the first time and is then cached for 30
+ * days like any card data — worth it, and only ever paid for sets the
+ * collection actually touches.
+ */
+export async function getSetCards(setId: string, signal?: AbortSignal): Promise<Card[]> {
+  const key = cacheKey("roster", { v: CACHE_VERSION, setId });
+
+  return cached(key, TTL.card, async () => {
+    const q = `set.id:${sanitiseTerm(setId)}`;
+    const collected: Card[] = [];
+
+    for (let page = 1; ; page++) {
+      const url = buildUrl("/cards", {
+        q,
+        page,
+        pageSize: MAX_PAGE_SIZE,
+        orderBy: "number",
+      });
+      const response = await fetchJson<PokemonApiList<PokemonApiCard>>(url, {
+        signal,
+        headers: headers(),
+      });
+
+      const cards = response.data.map(normaliseCard);
+      collected.push(...cards);
+      // Warm the per-card cache; these are the same objects the binder needs.
+      await Promise.all(cards.map((card) => writeEntry(cardCacheKey(card.id), card)));
+
+      if (collected.length >= response.totalCount || response.data.length === 0) break;
+    }
+
+    return collected;
+  });
+}
+
 export function cardCacheKey(id: string): string {
   return `card:${CACHE_VERSION}:pokemon:${id}`;
 }

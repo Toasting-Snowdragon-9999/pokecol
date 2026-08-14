@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Link } from "react-router";
 import type { Card } from "../../core/types";
 import { BinderSheet } from "./BinderSheet";
-import type { BinderSpread } from "./useBinderPages";
+import type { BinderSpread, BinderView } from "./useBinderPages";
 import { usePageFlip } from "./usePageFlip";
 import styles from "./binder.module.css";
 
@@ -11,9 +11,20 @@ interface BinderProps {
   singlePage: boolean;
   onOpenCard: (card: Card) => void;
   empty: boolean;
+  view: BinderView;
+  onViewChange: (view: BinderView) => void;
+  showViewToggle: boolean;
 }
 
-export function Binder({ spreads, singlePage, onOpenCard, empty }: BinderProps) {
+export function Binder({
+  spreads,
+  singlePage,
+  onOpenCard,
+  empty,
+  view,
+  onViewChange,
+  showViewToggle,
+}: BinderProps) {
   const { spread, flip, isFlipping, leafRef, shadowRef, goNext, goPrev, canGoNext, canGoPrev } =
     usePageFlip(spreads.length);
 
@@ -57,6 +68,22 @@ export function Binder({ spreads, singlePage, onOpenCard, empty }: BinderProps) 
 
   return (
     <div className={styles.stage}>
+      {showViewToggle && (
+        <div className={styles.viewToggle} role="group" aria-label="Binder layout">
+          {(["owned", "full"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`${styles.viewOption} ${view === option ? styles.viewOptionActive : ""}`}
+              onClick={() => onViewChange(option)}
+              aria-pressed={view === option}
+            >
+              {option === "owned" ? "Owned" : "Full set"}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div
         className={styles.binder}
         role="group"
