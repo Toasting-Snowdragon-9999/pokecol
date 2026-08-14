@@ -9,8 +9,10 @@
       name="description"
       content="Browse the Pokémon TCG and keep your collection in a real binder."
     />
-    <!-- Card art comes straight off the API's CDN; warm the connection early. -->
+    <!-- Card art comes straight off the API's CDNs; warm both connections early.
+         Older sets serve from pokemontcg.io, recent ones from scrydex.com. -->
     <link rel="preconnect" href="https://images.pokemontcg.io" crossorigin />
+    <link rel="preconnect" href="https://images.scrydex.com" crossorigin />
     <link rel="preconnect" href="https://api.pokemontcg.io" />
     <title>PokéCol — your Pokémon card binder</title>
   </head>
