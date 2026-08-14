@@ -1,6 +1,8 @@
 import { useMemo } from "react";
-import type { Card, CardSet } from "../../core/types";
+import type { Card, CardSet, GameId } from "../../core/types";
 import { naturalCompare } from "../../lib/sortCards";
+import { placementKey } from "./layoutStore";
+import type { PlacementMap } from "./layoutStore";
 import { computeSetCompletion } from "./setCompletion";
 import type { SetCompletion } from "./setCompletion";
 import type { SetRosters } from "./useSetRosters";
@@ -14,6 +16,14 @@ export const POCKETS_PER_SHEET = 9;
  * sits at the real position of the card that's missing from it.
  */
 export type BinderView = "owned" | "full";
+
+/**
+ * `set` is the canonical automatic arrangement — release date, then card
+ * number. `custom` is the collector's own, where cards can be dragged between
+ * pockets. They are stored separately, so rearranging never destroys the
+ * canonical view and you can always switch back to it.
+ */
+export type BinderOrder = "set" | "custom";
 
 export interface BinderSlot {
   card: Card | null;
@@ -148,6 +158,78 @@ export function buildSheets(
 }
 
 /**
+ * Lay cards out by hand-made placement instead of set order.
+ *
+ * Placed cards go exactly where they were put. Everything else — a card just
+ * added, or one whose placement was dropped — flows into the first free pocket,
+ * so a card can never disappear just because it has no placement yet.
+ *
+ * Sheets are pure position here: no set grouping, no set headers, because a
+ * custom binder is explicitly not organised by set.
+ */
+export function buildCustomSheets(
+  cards: Card[],
+  counts: SlotCounts,
+  placements: PlacementMap,
+  gameId: GameId,
+): BinderSheetData[] {
+  const occupied = new Map<string, Card>();
+  const unplaced: Card[] = [];
+
+  for (const card of cards) {
+    const placement = placements[placementKey(gameId, card.id)];
+    const positionKey = placement ? `${placement.page}:${placement.slot}` : null;
+    // A stale duplicate placement must not silently swallow a card.
+    if (positionKey && !occupied.has(positionKey)) occupied.set(positionKey, card);
+    else unplaced.push(card);
+  }
+
+  const highestPlacedPage = [...occupied.keys()].reduce(
+    (max, key) => Math.max(max, Number(key.split(":")[0])),
+    0,
+  );
+
+  const sheets: BinderSheetData[] = [];
+  let cursor = 0;
+
+  for (let page = 0; ; page++) {
+    const slots: BinderSlot[] = [];
+    for (let slot = 0; slot < POCKETS_PER_SHEET; slot++) {
+      let card = occupied.get(`${page}:${slot}`);
+      if (!card && cursor < unplaced.length) {
+        // Only fill a gap with an unplaced card, never with a placed one.
+        card = unplaced[cursor++];
+      }
+      slots.push(
+        card
+          ? {
+              card,
+              quantity: counts.quantityOf(card.id),
+              variantCount: counts.variantCountOf(card.id),
+            }
+          : { card: null, quantity: 0, variantCount: 0 },
+      );
+    }
+
+    sheets.push({ id: `custom-${page}`, set: null, sheetInSet: page + 1, sheetsInSet: 0, slots });
+
+    // Keep going while placements or leftovers remain, plus one spare page so
+    // there is always somewhere to drag a card to.
+    if (page >= highestPlacedPage && cursor >= unplaced.length) break;
+  }
+
+  sheets.push({
+    id: `custom-${sheets.length}`,
+    set: null,
+    sheetInSet: sheets.length + 1,
+    sheetsInSet: 0,
+    slots: emptySlots(),
+  });
+
+  return sheets;
+}
+
+/**
  * Pair sheets into spreads. On a wide screen you see two facing pages; on a
  * narrow one the binder shows a single page at a time and the right side of
  * each spread stays empty.
@@ -178,16 +260,34 @@ export function buildSpreads(sheets: BinderSheetData[], singlePage: boolean): Bi
   return spreads;
 }
 
+export interface BinderPagesOptions {
+  view?: BinderView;
+  rosters?: SetRosters;
+  order?: BinderOrder;
+  placements?: PlacementMap;
+  gameId?: GameId;
+}
+
 export function useBinderPages(
   cards: Card[],
   counts: SlotCounts,
   singlePage: boolean,
-  view: BinderView = "owned",
-  rosters?: SetRosters,
+  options: BinderPagesOptions = {},
 ) {
+  const {
+    view = "owned",
+    rosters,
+    order = "set",
+    placements = {},
+    gameId = "pokemon",
+  } = options;
+
   const sheets = useMemo(
-    () => buildSheets(cards, counts, view, rosters),
-    [cards, counts, view, rosters],
+    () =>
+      order === "custom"
+        ? buildCustomSheets(cards, counts, placements, gameId)
+        : buildSheets(cards, counts, view, rosters),
+    [cards, counts, view, rosters, order, placements, gameId],
   );
   const spreads = useMemo(() => buildSpreads(sheets, singlePage), [sheets, singlePage]);
   return { sheets, spreads };

@@ -10,6 +10,12 @@ interface BinderSheetProps {
   side: "left" | "right";
   onOpen: (card: Card) => void;
   interactive: boolean;
+  /** Absolute page index, so pockets carry a stable drag address. */
+  pageIndex?: number;
+  draggable?: boolean;
+  onDragStart?: (event: React.PointerEvent, card: Card, page: number, slot: number) => void;
+  liftedSlot?: number | null;
+  dropSlot?: number | null;
 }
 
 function releaseYear(iso: string | undefined): string | undefined {
@@ -27,6 +33,11 @@ export const BinderSheet = memo(function BinderSheet({
   side,
   onOpen,
   interactive,
+  pageIndex,
+  draggable = false,
+  onDragStart,
+  liftedSlot = null,
+  dropSlot = null,
 }: BinderSheetProps) {
   const sideClass = side === "left" ? styles.sheetLeft : styles.sheetRight;
 
@@ -72,6 +83,12 @@ export const BinderSheet = memo(function BinderSheet({
             slot={slot}
             onOpen={onOpen}
             interactive={interactive}
+            page={pageIndex}
+            index={index}
+            draggable={draggable}
+            onDragStart={onDragStart}
+            lifted={liftedSlot === index}
+            dropTarget={dropSlot === index}
           />
         ))}
       </div>

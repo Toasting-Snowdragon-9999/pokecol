@@ -9,6 +9,15 @@ interface PocketProps {
   onOpen: (card: Card) => void;
   /** Sheets that aren't currently readable are taken out of the tab order. */
   interactive: boolean;
+  /** Absolute address, used by drag hit-testing and drop targeting. */
+  page?: number;
+  index?: number;
+  draggable?: boolean;
+  onDragStart?: (event: React.PointerEvent, card: Card, page: number, slot: number) => void;
+  /** This pocket's card is currently lifted out of it. */
+  lifted?: boolean;
+  /** The dragged card would land here on release. */
+  dropTarget?: boolean;
 }
 
 /**
@@ -16,8 +25,22 @@ interface PocketProps {
  * the sheen — minus the card, so a half-filled set reads as a physical gap
  * rather than as missing UI.
  */
-export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: PocketProps) {
+export const Pocket = memo(function Pocket({
+  slot,
+  onOpen,
+  interactive,
+  page,
+  index,
+  draggable = false,
+  onDragStart,
+  lifted = false,
+  dropTarget = false,
+}: PocketProps) {
   const { card, quantity, variantCount, missingCard } = slot;
+
+  // Present on every pocket in custom mode so hit-testing can resolve a target.
+  const address = page !== undefined && index !== undefined ? `${page}:${index}` : undefined;
+  const targetClass = dropTarget ? styles.pocketTarget : "";
 
   if (!card) {
     /*
@@ -30,7 +53,8 @@ export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: Pocket
       return (
         <button
           type="button"
-          className={`${styles.pocket} ${styles.pocketEmpty} ${styles.pocketMissing}`}
+          data-pocket={address}
+          className={`${styles.pocket} ${styles.pocketEmpty} ${styles.pocketMissing} ${targetClass}`}
           onClick={() => onOpen(missingCard)}
           tabIndex={interactive ? 0 : -1}
           aria-label={`Missing: ${missingCard.name}, number ${missingCard.number}. View card.`}
@@ -41,7 +65,13 @@ export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: Pocket
         </button>
       );
     }
-    return <div className={`${styles.pocket} ${styles.pocketEmpty}`} aria-hidden="true" />;
+    return (
+      <div
+        data-pocket={address}
+        className={`${styles.pocket} ${styles.pocketEmpty} ${targetClass}`}
+        aria-hidden="true"
+      />
+    );
   }
 
   // Several printings of one card still share a single sleeve; the offset edges
@@ -49,11 +79,21 @@ export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: Pocket
   const stacked = variantCount > 1;
 
   return (
-    <div className={`${styles.pocket} ${styles.pocketFilled} ${stacked ? styles.pocketStacked : ""}`}>
+    <div
+      data-pocket={address}
+      className={`${styles.pocket} ${styles.pocketFilled} ${stacked ? styles.pocketStacked : ""} ${
+        lifted ? styles.pocketLifted : ""
+      } ${targetClass}`}
+    >
       <button
         type="button"
-        className={styles.cardButton}
+        className={`${styles.cardButton} ${draggable ? styles.cardDraggable : ""}`}
         onClick={() => onOpen(card)}
+        onPointerDown={
+          draggable && onDragStart && page !== undefined && index !== undefined
+            ? (event) => onDragStart(event, card, page, index)
+            : undefined
+        }
         tabIndex={interactive ? 0 : -1}
         aria-label={`${card.name}, ${card.set.name} number ${card.number}${
           quantity > 1 ? `, ${quantity} copies` : ""

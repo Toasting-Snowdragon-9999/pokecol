@@ -4,6 +4,10 @@ import type { Card } from "../../core/types";
 import { BinderSheet } from "./BinderSheet";
 import type { BinderSpread, BinderView } from "./useBinderPages";
 import { usePageFlip } from "./usePageFlip";
+import { useCardDrag } from "./useCardDrag";
+import type { PocketAddress } from "./useCardDrag";
+import type { BinderOrder } from "./useBinderPages";
+import { CardImage } from "../../components/CardImage";
 import styles from "./binder.module.css";
 
 interface BinderProps {
@@ -14,6 +18,9 @@ interface BinderProps {
   view: BinderView;
   onViewChange: (view: BinderView) => void;
   showViewToggle: boolean;
+  order: BinderOrder;
+  onOrderChange: (order: BinderOrder) => void;
+  onMoveCard: (card: Card, from: PocketAddress, to: PocketAddress) => void;
 }
 
 export function Binder({
@@ -24,9 +31,48 @@ export function Binder({
   view,
   onViewChange,
   showViewToggle,
+  order,
+  onOrderChange,
+  onMoveCard,
 }: BinderProps) {
   const { spread, flip, isFlipping, leafRef, shadowRef, goNext, goPrev, canGoNext, canGoPrev } =
     usePageFlip(spreads.length);
+
+  const handleEdgeHold = useCallback(
+    (direction: "prev" | "next") => {
+      if (direction === "next") goNext();
+      else goPrev();
+    },
+    [goNext, goPrev],
+  );
+
+  // Dragging is only meaningful where placements are honoured. In set order the
+  // layout is canonical and read-only, so cards stay put.
+  const { drag, startDrag } = useCardDrag({
+    enabled: order === "custom",
+    onDrop: onMoveCard,
+    onEdgeHold: handleEdgeHold,
+  });
+
+  const handleDragStart = useCallback(
+    (event: React.PointerEvent, card: Card, page: number, slot: number) => {
+      startDrag(event, card, { page, slot });
+    },
+    [startDrag],
+  );
+
+  /*
+   * Absolute page indices for the two visible sheets. Drag addresses must be
+   * page-absolute, not per-spread, or a placement would mean something
+   * different depending on which spread happened to be open.
+   */
+  const leftPageIndex = singlePage ? spread : spread * 2;
+  const rightPageIndex = leftPageIndex + 1;
+
+  const liftedOn = (pageIndex: number) =>
+    drag && drag.from.page === pageIndex ? drag.from.slot : null;
+  const dropOn = (pageIndex: number) =>
+    drag?.over && drag.over.page === pageIndex ? drag.over.slot : null;
 
   const current = spreads[spread] ?? { left: null, right: null };
 
@@ -69,18 +115,42 @@ export function Binder({
   return (
     <div className={styles.stage}>
       {showViewToggle && (
-        <div className={styles.viewToggle} role="group" aria-label="Binder layout">
-          {(["owned", "full"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`${styles.viewOption} ${view === option ? styles.viewOptionActive : ""}`}
-              onClick={() => onViewChange(option)}
-              aria-pressed={view === option}
-            >
-              {option === "owned" ? "Owned" : "Full set"}
-            </button>
-          ))}
+        <div className={styles.toolbar}>
+          <div className={styles.viewToggle} role="group" aria-label="Binder arrangement">
+            {(["set", "custom"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`${styles.viewOption} ${order === option ? styles.viewOptionActive : ""}`}
+                onClick={() => onOrderChange(option)}
+                aria-pressed={order === option}
+              >
+                {option === "set" ? "Set order" : "Custom"}
+              </button>
+            ))}
+          </div>
+
+          {/* Owned/Full set describes a set-organised binder; a custom
+              arrangement has no set structure for it to act on. */}
+          {order === "set" && (
+            <div className={styles.viewToggle} role="group" aria-label="Binder layout">
+              {(["owned", "full"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`${styles.viewOption} ${view === option ? styles.viewOptionActive : ""}`}
+                  onClick={() => onViewChange(option)}
+                  aria-pressed={view === option}
+                >
+                  {option === "owned" ? "Owned" : "Full set"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {order === "custom" && (
+            <p className={styles.toolbarHint}>Drag cards between sleeves to arrange them.</p>
+          )}
         </div>
       )}
 
@@ -98,6 +168,11 @@ export function Binder({
             side="left"
             onOpen={onOpenCard}
             interactive={!isFlipping}
+            pageIndex={leftPageIndex}
+            draggable={order === "custom" && !isFlipping}
+            onDragStart={handleDragStart}
+            liftedSlot={liftedOn(leftPageIndex)}
+            dropSlot={dropOn(leftPageIndex)}
           />
 
           {!singlePage && (
@@ -106,6 +181,11 @@ export function Binder({
               side="right"
               onOpen={onOpenCard}
               interactive={!isFlipping && !flip}
+              pageIndex={rightPageIndex}
+              draggable={order === "custom" && !isFlipping}
+              onDragStart={handleDragStart}
+              liftedSlot={liftedOn(rightPageIndex)}
+              dropSlot={dropOn(rightPageIndex)}
             />
           )}
 
@@ -154,6 +234,7 @@ export function Binder({
             disabled={!canGoPrev}
             aria-label="Previous page"
             tabIndex={-1}
+            data-edge="prev"
           />
           <button
             type="button"
@@ -162,6 +243,7 @@ export function Binder({
             disabled={!canGoNext}
             aria-label="Next page"
             tabIndex={-1}
+            data-edge="next"
           />
 
           {empty && (
@@ -177,6 +259,23 @@ export function Binder({
           )}
         </div>
       </div>
+
+      {/* The lifted card. Rendered outside the binder's 3D context so the
+          perspective transform can't distort it while it follows the pointer. */}
+      {drag && (
+        <div
+          className={styles.dragGhost}
+          style={{ transform: `translate3d(${drag.x}px, ${drag.y}px, 0) translate(-50%, -50%)` }}
+          aria-hidden="true"
+        >
+          <CardImage
+            src={drag.card.images.small}
+            alt=""
+            fallbackName={drag.card.name}
+            eager
+          />
+        </div>
+      )}
 
       <div className={styles.controls}>
         <button

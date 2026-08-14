@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Card } from "../core/types";
 import { CardVariantList } from "./CardVariantList";
+import { MoveCardControl } from "../features/binder/MoveCardControl";
+import type { MoveTarget } from "../features/binder/MoveCardControl";
 import styles from "./CardDetailModal.module.css";
 
 function formatNumber(card: Card): string {
@@ -22,7 +24,16 @@ function formatReleaseDate(iso: string | undefined): string | undefined {
  * opening it from inside the binder never disturbs which page you're on.
  * Uses a native <dialog> for the focus trap, Esc handling and inert background.
  */
-export function CardDetailModal({ card, onClose }: { card: Card | null; onClose: () => void }) {
+export function CardDetailModal({
+  card,
+  onClose,
+  moveTarget,
+}: {
+  card: Card | null;
+  onClose: () => void;
+  /** Supplied only by the binder, and only while a custom arrangement is active. */
+  moveTarget?: MoveTarget;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const hiResRef = useRef<HTMLImageElement>(null);
   const [hiResLoaded, setHiResLoaded] = useState(false);
@@ -141,6 +152,7 @@ export function CardDetailModal({ card, onClose }: { card: Card | null; onClose:
 
           <div className={styles.actions}>
             <CardVariantList card={card} />
+            {moveTarget && <MoveCardControl target={moveTarget} />}
           </div>
         </div>
       </div>
