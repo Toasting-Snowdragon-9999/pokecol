@@ -69,6 +69,13 @@
   position: relative;
   display: flex;
   transform-style: preserve-3d;
+  /* Horizontal strokes are the page-turn gesture's; vertical ones stay the
+     browser's, so the page still scrolls normally on a phone. */
+  touch-action: pan-y;
+  /* A drag across a set name would otherwise select it and leave the binder
+     covered in highlight. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* --- spine --- */
@@ -509,8 +516,12 @@
   background: linear-gradient(270deg, #ffffff1c, #0000);
 }
 
+/* A disabled button swallows pointer events entirely, which would blank out the
+   whole outer band — including the direction that *is* available. Letting the
+   press fall through keeps the first and last pages draggable the usable way. */
 .edge:disabled {
   cursor: default;
+  pointer-events: none;
 }
 
 /* --- card dragging --- */

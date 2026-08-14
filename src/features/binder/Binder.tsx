@@ -4,6 +4,7 @@ import type { Card } from "../../core/types";
 import { BinderSheet } from "./BinderSheet";
 import type { BinderSpread, BinderView } from "./useBinderPages";
 import { usePageFlip } from "./usePageFlip";
+import { usePageDragGesture } from "./usePageDragGesture";
 import { useCardDrag } from "./useCardDrag";
 import type { PocketAddress } from "./useCardDrag";
 import type { BinderOrder } from "./useBinderPages";
@@ -35,8 +36,35 @@ export function Binder({
   onOrderChange,
   onMoveCard,
 }: BinderProps) {
-  const { spread, flip, isFlipping, leafRef, shadowRef, goNext, goPrev, canGoNext, canGoPrev } =
-    usePageFlip(spreads.length);
+  const {
+    spread,
+    flip,
+    isFlipping,
+    leafRef,
+    shadowRef,
+    goNext,
+    goPrev,
+    canGoNext,
+    canGoPrev,
+    beginScrub,
+    scrubTo,
+    endScrub,
+  } = usePageFlip(spreads.length);
+
+  // Turning pages by dragging them. Shares the pointer surface with card
+  // dragging, so it defers to cards and to the middle of a custom-order page.
+  const { pagesRef, handlers: pageGesture } = usePageDragGesture({
+    enabled: !empty,
+    singlePage,
+    cardsOwnMiddle: order === "custom",
+    canGoNext,
+    canGoPrev,
+    beginScrub,
+    scrubTo,
+    endScrub,
+    goNext,
+    goPrev,
+  });
 
   const handleEdgeHold = useCallback(
     (direction: "prev" | "next") => {
@@ -162,7 +190,7 @@ export function Binder({
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
-        <div className={styles.pages}>
+        <div className={styles.pages} ref={pagesRef} {...pageGesture}>
           <BinderSheet
             sheet={staticLeft}
             side="left"

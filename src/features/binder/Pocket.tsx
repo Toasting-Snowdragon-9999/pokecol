@@ -87,6 +87,9 @@ export const Pocket = memo(function Pocket({
     >
       <button
         type="button"
+        // Marks the card-drag surface. The page-turn gesture reads this to keep
+        // off it, so a press on a card is never also a swipe.
+        data-card-grip=""
         className={`${styles.cardButton} ${draggable ? styles.cardDraggable : ""}`}
         onClick={() => onOpen(card)}
         onPointerDown={
