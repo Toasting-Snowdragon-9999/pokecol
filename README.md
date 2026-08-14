@@ -135,25 +135,47 @@ sees it.
 Rough order of value:
 
 - [ ] **Tests.** There are none. `useBinderPages` (sheet chunking, set
-      boundaries), `naturalCompare`, and the `buildQuery` escaping are pure
+      boundaries), `setCompletion`, `layoutStore.place` (the swap and the
+      baseline freeze), `naturalCompare`, and the `buildQuery` escaping are pure
       functions and the obvious first targets; the flip controller needs
-      component tests around cancellation.
+      component tests around cancellation, and the two pointer gestures need
+      tests around the tap/drag threshold that separates them.
 - [ ] **Accounts and sync.** `CollectionStore` was built for this — implement
       the interface against an API and swap one export. See ARCHITECTURE.md.
 - [ ] **Sort and group options.** Currently fixed to set-then-number. Recently
       added, by rarity, or by Pokédex number are all natural.
-- [ ] **Drag to reorder / place cards** in specific pockets, like a real binder.
-- [ ] **Set completion progress** — "84/102 collected" per set, and a way to see
+- [x] **Drag to reorder / place cards** in specific pockets, like a real binder.
+- [x] **Set completion progress** — "84/102 collected" per set, and a way to see
       which numbers are missing.
-- [ ] **Drag or swipe to turn pages**, following the pointer rather than
+- [x] **Drag or swipe to turn pages**, following the pointer rather than
       committing on click.
 - [ ] **A second TCG.** The provider seam exists but has only ever had one
       implementation, so it's unproven.
-- [ ] **Variants** — holo vs reverse holo vs 1st edition are different things to
+- [x] **Variants** — holo vs reverse holo vs 1st edition are different things to
       a collector but one `cardId` here.
 - [ ] **Virtualise long binders.** Only the current spread renders, so it's fine
       today, but resolving a 500-card collection is 50 sequential-ish requests
       on first load.
+- [ ] **Export and import the collection.** It lives only in this browser's
+      `localStorage` — one cleared profile and it's gone. A JSON round-trip is
+      small and buys a backup, plus a way to move between machines before
+      accounts exist.
+- [ ] **Undo a move.** `layoutStore.place` swaps two pockets, so the inverse is
+      exactly one more `place` call — but there's nowhere to trigger it, and a
+      mis-drop currently has to be dragged back by hand.
+- [ ] **Collection value.** `tcgplayer.prices` is already fetched per variant to
+      decide which printings exist, so the numbers are sitting there unused —
+      per-card, per-set and total, priced by the variant actually owned.
+- [ ] **A wishlist.** Full-set view already knows every number you're missing;
+      letting those gaps be marked *wanted* turns the binder into a want list
+      without a second data model.
+- [ ] **A duplicates view.** Quantities are tracked (`×N`) but never surfaced as
+      "here is everything you have spare" — the thing you'd actually take to a
+      trade.
+- [ ] **Name and reorder custom pages.** A custom arrangement has pages but no
+      identity — no titles, and no way to move a whole page.
+- [ ] **Offline.** Cards are already cached in IndexedDB; a service worker and a
+      manifest would make an installed binder work on a phone with no signal.
 - [ ] Deploy it — it's a static bundle, so any host works.
 
 ---
