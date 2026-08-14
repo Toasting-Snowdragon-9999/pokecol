@@ -1,0 +1,29 @@
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /*
+   * One variable drives the whole binder.
+   *
+   * A sheet is ~1.44x its own width once the 3x3 of 63:88 cards, the header and
+   * the padding are accounted for, so the height term is derived rather than
+   * guessed: subtracting the app header, the controls and the stage padding
+   * (~190px) leaves the room a page can actually occupy.
+   */
+  --sheet-w: clamp(220px, min(45vw, (100vh - 190px) / 1.44), 540px);
+}
+
+.singlePage {
+  --sheet-w: clamp(230px, min(88vw, (100vh - 170px) / 1.44), 460px);
+}
+
+.loading {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  justify-items: center;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}

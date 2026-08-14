@@ -1,0 +1,104 @@
+/*
+ * Design tokens.
+ *
+ * The app chrome is deliberately quiet — near-neutral surfaces, restrained type —
+ * so the binder is the only thing on screen asking for attention. Anything with
+ * warmth or saturation lives in the `--binder-*` group.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* --- app chrome (understated on purpose) --- */
+  --bg: #0d0e12;
+  --bg-raised: #14161c;
+  --bg-sunken: #090a0d;
+  --surface: #191c24;
+  --surface-hover: #1f232d;
+  --border: #262a35;
+  --border-strong: #333949;
+
+  --text: #e8eaf0;
+  --text-muted: #9aa1b2;
+  --text-faint: #6b7285;
+
+  /* One accent only. Muted gold — reads as foil/nostalgia, not "gaming UI". */
+  --accent: #d9a441;
+  --accent-soft: #d9a44122;
+  --accent-text: #1a1509;
+  --danger: #d4574e;
+  --owned: #5fa87a;
+
+  /* --- binder body --- */
+  --binder-leather-1: #2a3a63;
+  --binder-leather-2: #1b2745;
+  --binder-leather-3: #131c33;
+  --binder-edge: #0c1222;
+  --binder-stitch: #ffffff1f;
+
+  --page-1: #e9e5da;
+  --page-2: #ddd8ca;
+  --page-3: #cfc9b8;
+  --page-ink: #4a4436;
+
+  /* Sleeve plastic: barely-there blue-grey wash, sitting behind the card. */
+  --sleeve-plastic: linear-gradient(
+    160deg,
+    rgb(226 232 244 / 0.16),
+    rgb(150 162 184 / 0.12) 46%,
+    rgb(84 94 116 / 0.16)
+  );
+  --sleeve-empty: linear-gradient(
+    160deg,
+    rgb(126 123 110 / 0.4),
+    rgb(101 98 87 / 0.46) 55%,
+    rgb(76 74 65 / 0.52)
+  );
+
+  /* Paper grain. Defined once, reused by every page face. */
+  --page-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+
+  /* --- geometry --- */
+  --card-aspect: 63 / 88; /* a real Pokémon card is 63mm x 88mm */
+  --radius-sm: 5px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 6px 18px -6px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 24px 60px -18px rgb(0 0 0 / 0.7);
+
+  --flip-duration: 520ms;
+  --flip-ease: cubic-bezier(0.3, 0.1, 0.2, 1);
+
+  --font-ui:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-label: ui-rounded, "Segoe UI", system-ui, sans-serif;
+}
+
+/* Light mode keeps the same quiet character; the binder itself never inverts,
+   because a physical object doesn't change colour with your OS setting. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4f4f2;
+    --bg-raised: #ffffff;
+    --bg-sunken: #ececeb;
+    --surface: #ffffff;
+    --surface-hover: #f2f2f0;
+    --border: #dedddb;
+    --border-strong: #c6c5c2;
+    --text: #1a1c22;
+    --text-muted: #5c6272;
+    --text-faint: #8a90a0;
+    --accent: #9a6c11;
+    --accent-soft: #9a6c1118;
+    --accent-text: #fffaf0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --flip-duration: 0ms;
+  }
+}

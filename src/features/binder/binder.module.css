@@ -1,0 +1,524 @@
+/*
+ * The binder.
+ *
+ * Layout is driven by --sheet-w: one page is a 3x3 grid of 63:88 cards, so the
+ * page height follows from the card aspect ratio rather than being guessed.
+ */
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 26px 20px 34px;
+  /* The whole 3D scene hangs off this. Large enough that pages don't look
+     fish-eyed, small enough that the turn still reads as depth. */
+  perspective: 2400px;
+  perspective-origin: 50% 44%;
+}
+
+.binder {
+  --pocket-gap: calc(var(--sheet-w) * 0.028);
+  --page-pad: calc(var(--sheet-w) * 0.045);
+  /* Enough cover showing around the pages that it reads as a binder holding
+     them, rather than a thin frame. */
+  --cover-lip: calc(var(--sheet-w) * 0.05);
+
+  position: relative;
+  display: flex;
+  border-radius: 10px 14px 14px 10px;
+  padding: var(--cover-lip);
+  background:
+    linear-gradient(146deg, var(--binder-leather-1) 0%, var(--binder-leather-2) 46%, var(--binder-leather-3) 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffff26,
+    inset 0 -2px 6px #00000066,
+    0 2px 4px #00000055,
+    var(--shadow-lg);
+  transform-style: preserve-3d;
+}
+
+/* Grain + stitched edge, kept off the main element so they don't fight the
+   cover gradient. */
+.binder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--page-noise);
+  background-size: 150px 150px;
+  /* soft-light rather than overlay: overlay at any useful strength washes the
+     navy leather out to pale grey. */
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.binder::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--cover-lip) * 0.42);
+  border-radius: 8px;
+  border: 1px dashed var(--binder-stitch);
+  pointer-events: none;
+}
+
+.pages {
+  position: relative;
+  display: flex;
+  transform-style: preserve-3d;
+}
+
+/* --- spine --- */
+
+.spine {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--cover-lip) * -1);
+  bottom: calc(var(--cover-lip) * -1);
+  width: calc(var(--sheet-w) * 0.055);
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    #00000000 0%,
+    #0000004d 22%,
+    var(--binder-edge) 50%,
+    #0000004d 78%,
+    #00000000 100%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+.ring {
+  width: calc(var(--sheet-w) * 0.036);
+  height: calc(var(--sheet-w) * 0.036);
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#1b1e26, #1b1e26) padding-box,
+    linear-gradient(150deg, #f2f4f8 0%, #98a0b0 34%, #4c525f 62%, #d7dce4 100%) border-box;
+  box-shadow:
+    0 1px 2px #00000099,
+    inset 0 0 2px #ffffff44;
+}
+
+/* --- a single page --- */
+
+.sheet {
+  position: relative;
+  width: var(--sheet-w);
+  padding: var(--page-pad);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--page-pad) * 0.55);
+  background: linear-gradient(168deg, var(--page-1) 0%, var(--page-2) 62%, var(--page-3) 100%);
+  color: var(--page-ink);
+  /* Opaque backing so a turning leaf never shows what's beneath it. */
+  backface-visibility: hidden;
+}
+
+.sheetLeft {
+  border-radius: 6px 2px 2px 6px;
+}
+
+.sheetRight {
+  border-radius: 2px 6px 6px 2px;
+}
+
+.sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--page-noise);
+  background-size: 140px 140px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+/* Gutter shadow: the page curving down into the spine. */
+.sheetLeft::after,
+.sheetRight::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 13%;
+  pointer-events: none;
+}
+
+.sheetLeft::after {
+  right: 0;
+  background: linear-gradient(90deg, #0000 0%, #00000026 62%, #0000003d 100%);
+}
+
+.sheetRight::after {
+  left: 0;
+  background: linear-gradient(270deg, #0000 0%, #00000026 62%, #0000003d 100%);
+}
+
+.sheetBlank {
+  background: linear-gradient(168deg, #cdc8b8 0%, #bdb8a8 100%);
+}
+
+/* --- page header --- */
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sheet-w) * 0.018);
+  min-height: calc(var(--sheet-w) * 0.062);
+  padding-bottom: calc(var(--page-pad) * 0.4);
+  border-bottom: 1px solid #00000018;
+  position: relative;
+  z-index: 1;
+}
+
+.sheetSymbol {
+  width: calc(var(--sheet-w) * 0.042);
+  height: calc(var(--sheet-w) * 0.042);
+  object-fit: contain;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.sheetTitle {
+  font-family: var(--font-label);
+  font-size: calc(var(--sheet-w) * 0.032);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #3c372c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheetSpare {
+  font-family: var(--font-label);
+  font-size: calc(var(--sheet-w) * 0.026);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #9a927e;
+}
+
+.sheetSub {
+  margin-left: auto;
+  font-size: calc(var(--sheet-w) * 0.024);
+  color: #7d7462;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* --- pockets --- */
+
+.pockets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pocket-gap);
+  position: relative;
+  z-index: 1;
+}
+
+.pocket {
+  position: relative;
+  aspect-ratio: var(--card-aspect);
+  border-radius: calc(var(--sheet-w) * 0.011);
+  /* The sleeve itself: a shallow well pressed into the page. */
+  background: var(--sleeve-empty);
+  box-shadow:
+    inset 0 1px 2px #00000047,
+    inset 0 -1px 0 #ffffff17,
+    0 1px 0 #ffffff21;
+  overflow: hidden;
+}
+
+/* The mouth of the sleeve, along the top edge. */
+.pocket::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 9%;
+  z-index: 3;
+  background: linear-gradient(#ffffff2e, #ffffff05);
+  border-bottom: 1px solid #ffffff2b;
+  pointer-events: none;
+}
+
+/* Plastic sheen across the sleeve. Kept as a narrow diagonal streak — widen it
+   and it stops reading as a highlight and just fogs the artwork. */
+.pocket::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: linear-gradient(
+    115deg,
+    #0000 43%,
+    #ffffff1c 49%,
+    #ffffff08 53%,
+    #0000 58%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.pocketFilled {
+  background: var(--sleeve-plastic);
+}
+
+/* An empty sleeve should still read as a physical pocket pressed into the page,
+   not as blank space where a card is missing. */
+.pocketEmpty {
+  box-shadow:
+    inset 0 2px 5px #00000059,
+    inset 0 -1px 0 #ffffff14,
+    0 1px 0 #ffffff26;
+}
+
+.pocketEmpty::after {
+  opacity: 0.5;
+}
+
+.cardButton {
+  position: absolute;
+  inset: 3.2%;
+  z-index: 2;
+  border-radius: calc(var(--sheet-w) * 0.008);
+  background: none;
+  /* Card sits proud of the page, casting into the sleeve. */
+  box-shadow:
+    0 1px 3px #00000059,
+    0 4px 8px -3px #00000047;
+  transition: transform 170ms ease;
+}
+
+.cardButton:hover {
+  transform: scale(1.028);
+  z-index: 5;
+}
+
+.cardArt {
+  border-radius: calc(var(--sheet-w) * 0.008);
+}
+
+/* Duplicate counter, like a sticky note in the sleeve corner. */
+.dupe {
+  position: absolute;
+  right: 5%;
+  bottom: 4%;
+  z-index: 5;
+  min-width: calc(var(--sheet-w) * 0.05);
+  padding: 0 calc(var(--sheet-w) * 0.012);
+  border-radius: 999px;
+  font-size: calc(var(--sheet-w) * 0.024);
+  font-weight: 700;
+  line-height: 1.7;
+  text-align: center;
+  color: #f5f3ec;
+  background: #1f242eda;
+  box-shadow: 0 1px 3px #00000073;
+  pointer-events: none;
+}
+
+/* --- the turning leaf --- */
+
+.leaf {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  z-index: 5;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.leafSingle {
+  left: 0;
+  width: 100%;
+}
+
+.leafFlipping {
+  will-change: transform;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.faceBack {
+  transform: rotateY(180deg);
+}
+
+.face > .sheet {
+  width: 100%;
+  height: 100%;
+}
+
+/* Travelling shadow cast by the leaf as it passes over the spread. */
+.leafShadow {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 50%, #00000073 0%, #0000 70%);
+}
+
+/* --- edge hit areas --- */
+
+.edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--sheet-w) * 0.09);
+  z-index: 7;
+  background: #0000;
+  transition: background 180ms ease;
+}
+
+.edgePrev {
+  left: 0;
+  border-radius: 6px 0 0 6px;
+}
+
+.edgeNext {
+  right: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.edge:hover:not(:disabled) {
+  background: linear-gradient(90deg, #ffffff1c, #0000);
+}
+
+.edgeNext:hover:not(:disabled) {
+  background: linear-gradient(270deg, #ffffff1c, #0000);
+}
+
+.edge:disabled {
+  cursor: default;
+}
+
+/* --- controls below the binder --- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.navButton:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.navButton:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+.pageCount {
+  min-width: 108px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- empty binder --- */
+
+.emptyOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-content: center;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 26px;
+  text-align: center;
+  color: #3c372c;
+}
+
+/* A card-sized note resting on the open pages, so the message stays readable
+   against the sleeves behind it. */
+.emptyOverlay::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(30ch, 82%);
+  height: 190px;
+  border-radius: 12px;
+  background: linear-gradient(168deg, #f6f3ea, #e6e1d2);
+  box-shadow:
+    0 14px 34px -12px #00000073,
+    inset 0 0 0 1px #ffffff8c;
+}
+
+.emptyTitle,
+.emptyText,
+.emptyLink {
+  position: relative;
+}
+
+.emptyTitle {
+  font-family: var(--font-label);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.emptyText {
+  max-width: 30ch;
+  font-size: 13.5px;
+  color: #6f6857;
+}
+
+.emptyLink {
+  justify-self: center;
+  margin-top: 4px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #363f5c;
+  color: #eef1f8;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 3px 10px -3px #00000080;
+}
+
+.emptyLink:hover {
+  background: #43507a;
+}

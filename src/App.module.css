@@ -1,0 +1,17 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  /* A faint vignette keeps the binder feeling lit from above rather than
+     floating on a flat page. */
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1a1e2b 0%, transparent 60%),
+    var(--bg);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

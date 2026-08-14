@@ -1,0 +1,215 @@
+.dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* The global `* { margin: 0 }` reset wipes out the UA's `margin: auto`, which
+     is what centres a modal dialog in its viewport-filling containing block. */
+  margin: auto;
+  max-width: min(920px, 94vw);
+  max-height: 92vh;
+  overflow: visible;
+  color: var(--text);
+}
+
+.dialog::backdrop {
+  background: rgb(6 7 10 / 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 26px;
+  padding: 26px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-lg);
+  max-height: 92vh;
+  overflow: hidden;
+}
+
+/* --- artwork --- */
+
+.art {
+  position: relative;
+  aspect-ratio: var(--card-aspect);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 18px 40px -14px rgb(0 0 0 / 0.75),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  align-self: start;
+}
+
+.artImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The already-cached small image shows immediately, blurred, so there is never
+   a blank panel while the ~845KB hi-res version decodes. */
+.artPreview {
+  filter: blur(10px);
+  transform: scale(1.06);
+}
+
+.artFull {
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.artFullLoaded {
+  opacity: 1;
+}
+
+/* --- body --- */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.name {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: background 140ms ease;
+}
+
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.setRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.setSymbol {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.setName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.setMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.fact {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.factLabel {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.factValue {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.details {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.detailRow {
+  display: grid;
+  gap: 2px;
+}
+
+.detailLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.detailValue {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.actions {
+  margin-top: auto;
+  padding-top: 8px;
+  max-width: 260px;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px;
+    overflow-y: auto;
+  }
+
+  .art {
+    max-width: 220px;
+    margin: 0 auto;
+  }
+
+  .body {
+    overflow: visible;
+  }
+}
