@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Card } from "../core/types";
-import { QuantityStepper } from "./QuantityStepper";
+import { CardVariantList } from "./CardVariantList";
 import styles from "./CardDetailModal.module.css";
 
 function formatNumber(card: Card): string {
@@ -140,7 +140,7 @@ export function CardDetailModal({ card, onClose }: { card: Card | null; onClose:
           )}
 
           <div className={styles.actions}>
-            <QuantityStepper card={card} />
+            <CardVariantList card={card} />
           </div>
         </div>
       </div>

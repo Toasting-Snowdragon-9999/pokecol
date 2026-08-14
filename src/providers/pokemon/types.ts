@@ -21,6 +21,14 @@ export interface PokemonApiAttack {
   text?: string;
 }
 
+/**
+ * Only the price *keys* are read, never the values — their presence is what
+ * tells us which printings of a card exist. See `variants.ts`.
+ */
+export interface PokemonApiTcgPlayer {
+  prices?: Record<string, unknown>;
+}
+
 export interface PokemonApiCard {
   id: string;
   name: string;
@@ -42,6 +50,7 @@ export interface PokemonApiCard {
     small: string;
     large: string;
   };
+  tcgplayer?: PokemonApiTcgPlayer;
 }
 
 export interface PokemonApiList<T> {

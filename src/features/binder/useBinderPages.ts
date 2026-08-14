@@ -6,7 +6,10 @@ export const POCKETS_PER_SHEET = 9;
 
 export interface BinderSlot {
   card: Card | null;
+  /** Total copies across every printing — what's physically in the sleeve. */
   quantity: number;
+  /** Distinct printings owned. >1 renders the sleeve as a small stack. */
+  variantCount: number;
 }
 
 export interface BinderSheetData {
@@ -23,7 +26,11 @@ export interface BinderSheetData {
 }
 
 function emptySlots(): BinderSlot[] {
-  return Array.from({ length: POCKETS_PER_SHEET }, () => ({ card: null, quantity: 0 }));
+  return Array.from({ length: POCKETS_PER_SHEET }, () => ({
+    card: null,
+    quantity: 0,
+    variantCount: 0,
+  }));
 }
 
 /** A spare sheet of empty pockets — room left to grow, like a real binder. */
@@ -50,10 +57,12 @@ function chunk<T>(items: T[], size: number): T[][] {
  * empty pockets — the same way a real binder looks while you're still filling a
  * set, and the reason empty sleeves carry meaning here rather than being filler.
  */
-export function buildSheets(
-  cards: Card[],
-  quantityOf: (cardId: string) => number,
-): BinderSheetData[] {
+export interface SlotCounts {
+  quantityOf: (cardId: string) => number;
+  variantCountOf: (cardId: string) => number;
+}
+
+export function buildSheets(cards: Card[], counts: SlotCounts): BinderSheetData[] {
   const sheets: BinderSheetData[] = [];
 
   let index = 0;
@@ -70,10 +79,13 @@ export function buildSheets(
     groupSheets.forEach((sheetCards, sheetIndex) => {
       const slots: BinderSlot[] = sheetCards.map((card) => ({
         card,
-        quantity: quantityOf(card.id),
+        quantity: counts.quantityOf(card.id),
+        variantCount: counts.variantCountOf(card.id),
       }));
       // Pad the set's last sheet so the 3x3 grid always holds nine pockets.
-      while (slots.length < POCKETS_PER_SHEET) slots.push({ card: null, quantity: 0 });
+      while (slots.length < POCKETS_PER_SHEET) {
+        slots.push({ card: null, quantity: 0, variantCount: 0 });
+      }
 
       sheets.push({
         id: `${set.id}-${sheetIndex}`,
@@ -119,12 +131,8 @@ export function buildSpreads(sheets: BinderSheetData[], singlePage: boolean): Bi
   return spreads;
 }
 
-export function useBinderPages(
-  cards: Card[],
-  quantityOf: (cardId: string) => number,
-  singlePage: boolean,
-) {
-  const sheets = useMemo(() => buildSheets(cards, quantityOf), [cards, quantityOf]);
+export function useBinderPages(cards: Card[], counts: SlotCounts, singlePage: boolean) {
+  const sheets = useMemo(() => buildSheets(cards, counts), [cards, counts]);
   const spreads = useMemo(() => buildSpreads(sheets, singlePage), [sheets, singlePage]);
   return { sheets, spreads };
 }

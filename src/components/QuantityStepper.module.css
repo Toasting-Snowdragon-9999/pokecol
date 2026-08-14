@@ -18,6 +18,21 @@
   color: var(--accent-text);
 }
 
+.addCompact {
+  width: auto;
+  min-width: 78px;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.stepperCompact {
+  grid-template-columns: 26px 1fr 26px;
+}
+
+.stepperCompact .step {
+  height: 26px;
+}
+
 .stepper {
   display: grid;
   grid-template-columns: 30px 1fr 30px;

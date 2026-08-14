@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CardDetailModal } from "../../components/CardDetailModal";
 import { ErrorState, Spinner } from "../../components/States";
 import { useCollection } from "../../collection/context";
@@ -13,12 +13,20 @@ import styles from "./BinderPage.module.css";
 const SINGLE_PAGE_QUERY = "(max-width: 760px)";
 
 export function BinderPage() {
-  const { quantityOf } = useCollection();
+  const { quantityOf, variantsOwned } = useCollection();
   const { cards, loading, error, retry } = useCollectionCards();
   const singlePage = useMediaQuery(SINGLE_PAGE_QUERY);
   const [openCard, setOpenCard] = useState<Card | null>(null);
 
-  const { spreads } = useBinderPages(cards, quantityOf, singlePage);
+  const counts = useMemo(
+    () => ({
+      quantityOf: (cardId: string) => quantityOf(cardId),
+      variantCountOf: (cardId: string) => variantsOwned(cardId).length,
+    }),
+    [quantityOf, variantsOwned],
+  );
+
+  const { spreads } = useBinderPages(cards, counts, singlePage);
 
   if (error && cards.length === 0) {
     return (

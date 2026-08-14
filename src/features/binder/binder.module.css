@@ -275,6 +275,29 @@
   background: var(--sleeve-plastic);
 }
 
+/*
+ * More than one printing of the same card owned.
+ *
+ * Two thin card edges peek out from behind the sleeve, reading as a small
+ * stack. Deliberately not a badge or an icon — the binder surface is meant to
+ * look like plastic and cardboard, and the exact breakdown is one click away
+ * in the card detail view.
+ */
+.pocketStacked .cardButton {
+  /*
+   * Hard-edged offset shadows read as the edges of further cards behind this
+   * one. Offsets are in px and stay under the pocket's 3.2% inset, so nothing
+   * is clipped away; pseudo-elements were too easily swallowed by that margin.
+   */
+  box-shadow:
+    2px -2px 0 -0.5px #d8d2c2,
+    2.5px -2.5px 0 0 #6f6857,
+    4.5px -4.5px 0 -0.5px #cbc4b2,
+    5px -5px 0 0 #6f6857,
+    0 1px 3px #00000059,
+    0 4px 8px -3px #00000047;
+}
+
 /* An empty sleeve should still read as a physical pocket pressed into the page,
    not as blank space where a card is missing. */
 .pocketEmpty {

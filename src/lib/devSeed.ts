@@ -22,7 +22,7 @@ export function installDevHelpers(): void {
   const api: DevApi = {
     async seed(setId = "base1", count = 30) {
       const provider = getProvider();
-      const collected: string[] = [];
+      const collected: { id: string; variantId: string }[] = [];
       let page = 1;
 
       while (collected.length < count) {
@@ -30,14 +30,14 @@ export function installDevHelpers(): void {
         if (result.items.length === 0) break;
         for (const card of result.items) {
           if (collected.length >= count) break;
-          collected.push(card.id);
+          collected.push({ id: card.id, variantId: card.defaultVariantId });
         }
         if (!result.hasMore) break;
         page += 1;
       }
 
-      for (const id of collected) {
-        await store.setQuantity("pokemon", id, 1);
+      for (const { id, variantId } of collected) {
+        await store.setQuantity("pokemon", id, variantId, 1);
       }
       return `Seeded ${collected.length} cards from ${setId}.`;
     },

@@ -192,8 +192,8 @@
 
 .actions {
   margin-top: auto;
-  padding-top: 8px;
-  max-width: 260px;
+  padding-top: 10px;
+  max-width: 340px;
 }
 
 @media (max-width: 720px) {

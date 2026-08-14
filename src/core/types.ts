@@ -29,6 +29,18 @@ export interface CardDetail {
   value: string;
 }
 
+/**
+ * A distinct printing of a card — holo, reverse holo, 1st edition and so on.
+ *
+ * `id` is provider-defined and opaque above the provider layer: the collection
+ * stores it, the UI shows `label`, and neither knows what any particular value
+ * means. A second TCG emits its own ids without changing anything here.
+ */
+export interface CardVariant {
+  id: string;
+  label: string;
+}
+
 export interface Card {
   /** Provider-native id, e.g. `base1-4`. Unique within a game. */
   id: string;
@@ -49,6 +61,10 @@ export interface Card {
     large: string;
   };
   details?: CardDetail[];
+  /** Printings this card exists in, in provider preference order. Never empty. */
+  variants: CardVariant[];
+  /** Which printing a one-click "add" records. Always present in `variants`. */
+  defaultVariantId: string;
 }
 
 export interface CardSearchParams {

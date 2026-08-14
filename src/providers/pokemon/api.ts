@@ -17,6 +17,19 @@ const ID_BATCH_SIZE = 10;
 /** Anonymous access allows 30 requests/minute, so batches stay gentle. */
 const ID_BATCH_CONCURRENCY = 2;
 
+/**
+ * Bump when the normalised `Card` shape changes.
+ *
+ * Cached cards are stored already-normalised, so an older entry would
+ * deserialise missing whatever field was added — for 30 days, silently. Cached
+ * card data is *derived*, so invalidating it just costs a refetch. (Never do
+ * this to the collection in localStorage, which is user state and must be
+ * migrated instead.)
+ *
+ * v2: cards gained `variants` / `defaultVariantId`.
+ */
+const CACHE_VERSION = "v2";
+
 const apiKey = import.meta.env.VITE_POKEMONTCG_API_KEY as string | undefined;
 
 function headers(): Record<string, string> {
@@ -74,7 +87,8 @@ export async function searchCards(
   signal?: AbortSignal,
 ): Promise<RawSearchResult> {
   const size = Math.min(pageSize, MAX_PAGE_SIZE);
-  const key = cacheKey("search", { q, page, size });
+  // Search results hold normalised cards too, so they share the shape version.
+  const key = cacheKey("search", { v: CACHE_VERSION, q, page, size });
 
   return cached(key, TTL.search, async () => {
     const url = buildUrl("/cards", {
@@ -114,7 +128,7 @@ export async function listSets(signal?: AbortSignal): Promise<CardSet[]> {
 }
 
 export function cardCacheKey(id: string): string {
-  return `card:pokemon:${id}`;
+  return `card:${CACHE_VERSION}:pokemon:${id}`;
 }
 
 /** Run `tasks` with limited concurrency to stay under the per-minute ceiling. */

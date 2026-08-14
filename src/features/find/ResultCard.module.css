@@ -65,7 +65,9 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: 46px;
+  /* Reserves room for the optional printings hint so Add buttons stay aligned
+     across a grid row whether or not a card has multiple printings. */
+  min-height: 62px;
 }
 
 .name {
@@ -106,6 +108,19 @@
   font-size: 11px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+}
+
+.variantHint {
+  align-self: flex-start;
+  margin-top: 1px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+  transition: color 140ms ease;
+}
+
+.variantHint:hover {
+  color: var(--accent);
 }
 
 .rarity {

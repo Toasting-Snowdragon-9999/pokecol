@@ -5,15 +5,30 @@ import type { CollectionEntry } from "./store";
 export interface CollectionContextValue {
   entries: CollectionEntry[];
   loading: boolean;
+  /**
+   * Total copies of a card across every printing — i.e. how many physical
+   * cards are in that sleeve. This is what the binder badge and the search
+   * ownership indicator mean, which is why adding variants didn't change
+   * either of them.
+   */
   quantityOf: (cardId: string, gameId?: GameId) => number;
+  /** Copies of one specific printing. */
+  quantityOfVariant: (cardId: string, variantId: string, gameId?: GameId) => number;
+  /** Distinct printings owned of a card — 0, 1 or more. */
+  variantsOwned: (cardId: string, gameId?: GameId) => string[];
   isOwned: (cardId: string, gameId?: GameId) => boolean;
-  add: (cardId: string, gameId?: GameId) => Promise<void>;
-  remove: (cardId: string, gameId?: GameId) => Promise<void>;
-  setQuantity: (cardId: string, quantity: number, gameId?: GameId) => Promise<void>;
+  add: (cardId: string, variantId: string, gameId?: GameId) => Promise<void>;
+  remove: (cardId: string, variantId: string, gameId?: GameId) => Promise<void>;
+  setQuantity: (
+    cardId: string,
+    variantId: string,
+    quantity: number,
+    gameId?: GameId,
+  ) => Promise<void>;
   clear: () => Promise<void>;
-  /** Distinct cards owned. */
+  /** Distinct cards owned (a card counts once however many printings). */
   uniqueCards: number;
-  /** Total including duplicates. */
+  /** Total including duplicates and printings. */
   totalCards: number;
 }
 

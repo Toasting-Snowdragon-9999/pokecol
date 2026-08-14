@@ -61,9 +61,23 @@ export const ResultCard = memo(function ResultCard({ card, onOpen, eager }: Resu
           </span>
           {card.rarity && <span className={styles.rarity}>{card.rarity}</span>}
         </p>
+        {/* Only surfaced when there is genuinely a choice to make — the add
+            button below still adds the base print in one click. */}
+        {card.variants.length > 1 && (
+          <button type="button" className={styles.variantHint} onClick={() => onOpen(card)}>
+            ▾ {card.variants.length} printings
+          </button>
+        )}
       </div>
 
-      <QuantityStepper card={card} />
+      <QuantityStepper
+        card={card}
+        variantLabel={
+          card.variants.length > 1
+            ? card.variants.find((variant) => variant.id === card.defaultVariantId)?.label
+            : undefined
+        }
+      />
     </article>
   );
 });

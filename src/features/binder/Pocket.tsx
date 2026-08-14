@@ -17,14 +17,18 @@ interface PocketProps {
  * rather than as missing UI.
  */
 export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: PocketProps) {
-  const { card, quantity } = slot;
+  const { card, quantity, variantCount } = slot;
 
   if (!card) {
     return <div className={`${styles.pocket} ${styles.pocketEmpty}`} aria-hidden="true" />;
   }
 
+  // Several printings of one card still share a single sleeve; the offset edges
+  // behind it read as a small stack rather than adding a badge to the page.
+  const stacked = variantCount > 1;
+
   return (
-    <div className={`${styles.pocket} ${styles.pocketFilled}`}>
+    <div className={`${styles.pocket} ${styles.pocketFilled} ${stacked ? styles.pocketStacked : ""}`}>
       <button
         type="button"
         className={styles.cardButton}
@@ -32,7 +36,7 @@ export const Pocket = memo(function Pocket({ slot, onOpen, interactive }: Pocket
         tabIndex={interactive ? 0 : -1}
         aria-label={`${card.name}, ${card.set.name} number ${card.number}${
           quantity > 1 ? `, ${quantity} copies` : ""
-        }`}
+        }${stacked ? `, ${variantCount} printings` : ""}`}
       >
         {/* Eager: only the current spread and the turning leaf are ever
             mounted, so every pocket on screen is genuinely visible. Lazy
