@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CardDetailModal } from "../../components/CardDetailModal";
-import { EmptyState, ErrorState, Spinner } from "../../components/States";
+import { EmptyState, ErrorState, Spinner, UnavailableState } from "../../components/States";
 import type { Card } from "../../core/types";
+import { useActiveGame } from "../../game/context";
 import { useDebounced } from "../../lib/useDebounced";
 import { ResultCard } from "./ResultCard";
 import { PAGE_SIZE, useCardSearch } from "./useCardSearch";
@@ -26,9 +27,19 @@ function SkeletonGrid({ count }: { count: number }) {
 }
 
 export function FindCardsPage() {
+  const { meta, provider } = useActiveGame();
   const [rawQuery, setRawQuery] = useState("");
   const [setId, setSetId] = useState("");
   const [openCard, setOpenCard] = useState<Card | null>(null);
+
+  /*
+   * Switching games invalidates both filters: a Pokémon set id means nothing to
+   * Scryfall, and carrying a query across is at best a coincidence.
+   */
+  useEffect(() => {
+    setRawQuery("");
+    setSetId("");
+  }, [provider]);
 
   const query = useDebounced(rawQuery, 350);
   const { groups, error: setsError } = useSets();
@@ -59,12 +70,21 @@ export function FindCardsPage() {
 
   const isBrowsingDefault = !query && !setId;
 
+  // A game with no data source explains itself rather than searching nothing.
+  if (provider.unavailableReason) {
+    return (
+      <div className={styles.page}>
+        <UnavailableState game={provider.label} reason={provider.unavailableReason} />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.intro}>
         <h1 className={styles.title}>Find cards</h1>
         <p className={styles.lede}>
-          Search the Pokémon TCG catalogue and slot cards straight into your binder.
+          Search the {meta.label} catalogue and slot cards straight into your binder.
         </p>
       </div>
 
@@ -78,7 +98,7 @@ export function FindCardsPage() {
             type="search"
             value={rawQuery}
             onChange={(event) => setRawQuery(event.target.value)}
-            placeholder="Search by name — try charizard, or blaine char"
+            placeholder={`Search ${meta.shortLabel} cards by name`}
             aria-label="Search cards by name"
             autoComplete="off"
           />
@@ -94,23 +114,25 @@ export function FindCardsPage() {
           )}
         </div>
 
-        <select
-          className={styles.setSelect}
-          value={setId}
-          onChange={(event) => setSetId(event.target.value)}
-          aria-label="Filter by set"
-        >
-          <option value="">All sets</option>
-          {groups.map((group) => (
-            <optgroup label={group.series} key={group.series}>
-              {group.sets.map((set) => (
-                <option value={set.id} key={set.id}>
-                  {set.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {provider.capabilities.setFilter && (
+          <select
+            className={styles.setSelect}
+            value={setId}
+            onChange={(event) => setSetId(event.target.value)}
+            aria-label="Filter by set"
+          >
+            <option value="">All sets</option>
+            {groups.map((group) => (
+              <optgroup label={group.series} key={group.series}>
+                {group.sets.map((set) => (
+                  <option value={set.id} key={set.id}>
+                    {set.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
       </div>
 
       <p className={styles.resultMeta} aria-live="polite">

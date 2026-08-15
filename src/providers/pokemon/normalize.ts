@@ -1,6 +1,6 @@
 import type { Card, CardDetail, CardSet } from "../../core/types";
 import type { PokemonApiCard, PokemonApiSet } from "./types";
-import { extractVariants } from "./variants";
+import { extractPrices, extractVariants } from "./variants";
 
 /** The API returns `1999/01/09`; normalise so plain string compare is chronological. */
 function normaliseDate(value: string | undefined): string | undefined {
@@ -83,5 +83,6 @@ export function normaliseCard(raw: PokemonApiCard): Card {
       large: raw.images.large,
     },
     details: buildDetails(raw),
+    prices: extractPrices(raw),
   };
 }

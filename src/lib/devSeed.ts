@@ -8,11 +8,13 @@
  */
 
 import { getProvider } from "../core/registry";
+import { DEFAULT_GAME } from "../core/games";
+import type { GameId } from "../core/games";
 import { collectionStore } from "../collection/store";
 
 interface DevApi {
-  seed: (setId?: string, count?: number) => Promise<string>;
-  clear: () => Promise<string>;
+  seed: (setId?: string, count?: number, gameId?: GameId) => Promise<string>;
+  clear: (gameId?: GameId) => Promise<string>;
 }
 
 export function installDevHelpers(): void {
@@ -20,8 +22,8 @@ export function installDevHelpers(): void {
   const store = collectionStore;
 
   const api: DevApi = {
-    async seed(setId = "base1", count = 30) {
-      const provider = getProvider();
+    async seed(setId = "base1", count = 30, gameId = DEFAULT_GAME) {
+      const provider = getProvider(gameId);
       const collected: { id: string; variantId: string }[] = [];
       let page = 1;
 
@@ -37,14 +39,14 @@ export function installDevHelpers(): void {
       }
 
       for (const { id, variantId } of collected) {
-        await store.setQuantity("pokemon", id, variantId, 1);
+        await store.setQuantity(gameId, id, variantId, 1);
       }
-      return `Seeded ${collected.length} cards from ${setId}.`;
+      return `Seeded ${collected.length} ${gameId} cards from ${setId}.`;
     },
 
-    async clear() {
-      await store.clear();
-      return "Collection cleared.";
+    async clear(gameId = DEFAULT_GAME) {
+      await store.clear(gameId);
+      return `${gameId} collection cleared.`;
     },
   };
 

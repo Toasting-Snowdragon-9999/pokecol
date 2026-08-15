@@ -1,8 +1,12 @@
-# PokéCol
+# CardCol
 
-A Pokémon TCG collection app where your cards live in a **physical binder** —
+A trading card collection app where your cards live in a **physical binder** —
 3×3 sleeve pages, a centre spine, and a real page-turn — instead of a
 responsive grid.
+
+Six games: **Pokémon**, **Magic: The Gathering**, **Yu-Gi-Oh!**,
+**Star Wars: Unlimited**, **One Piece** and **Disney Lorcana**. Each keeps its
+own collection, wishlist and arrangement — switching game switches universe.
 
 Search a card → add it → open My Collection → it's sitting in a sleeve.
 
@@ -35,14 +39,15 @@ Navigate with the page edges, the prev/next buttons, or the ← / → keys. Unde
 
 ### Find Cards
 
-Search the full catalogue by name and slot cards straight into the binder.
+Search the active game's catalogue by name and slot cards straight into the
+binder.
 Cards you own are marked and their button becomes a quantity stepper, so
 ownership is obvious while you scan.
 
 ![The card browser showing Charizard search results](docs/images/find-cards.jpg)
 
 - name search, forgiving about partial words and multiple terms (`blaine char` works)
-- filter by set (all 174, grouped by series)
+- filter by set, where the game has meaningful sets
 - name, set, number, rarity and set symbol on every result
 - infinite scroll, 24 cards a page — the catalogue is never loaded at once
 
@@ -56,8 +61,25 @@ and its details. Opening it from the binder doesn't lose your page.
 The high-res image loads behind the small one blurred, so the panel is never
 blank while ~845KB decodes.
 
+### Wishlist
+
+Cards you're hunting, as a clean grid rather than a binder — a wishlist is a
+list you take to a trade, not an object you arrange. Each entry stores the
+**printing** you actually want (normal vs foil vs 1st edition), shows what it's
+currently worth, and "I got this" moves it straight into the collection as that
+exact printing.
+
+### Collection value
+
+An estimated market value for what you own, priced per printing where the
+provider supports it. Cards with no published price are excluded and counted —
+"128 of 141 cards priced" — rather than quietly treated as worthless. It's an
+estimate of current market prices, not an appraisal, and says so.
+
 ### Also in there
 
+- **undo the last move** — mis-drop a card and take it back with the toolbar
+  button or Ctrl/Cmd+Z
 - collection persists locally and syncs across browser tabs
 - loading skeletons, retry-on-error, and a card-back fallback for missing art
 - keyboard navigable; respects `prefers-reduced-motion`
@@ -66,18 +88,18 @@ blank while ~845KB decodes.
 
 ## Running it
 
-Requires **Node 20+** (developed on Node 25). No backend, no database, no
-API key needed.
+Requires **Node 20+** (developed on Node 25). No backend, no database.
 
 ```bash
 git clone <this-repo>
-cd pokecol
+cd cardcol
 npm install
 npm run dev
 ```
 
 Open **http://localhost:5173**. It opens on an empty binder — go to **Find
-Cards**, search something, and add it.
+Cards**, search something, and add it. Click **CardCol** in the top-left to
+switch game.
 
 ### Scripts
 
@@ -85,48 +107,53 @@ Cards**, search something, and add it.
 |---|---|
 | `npm run dev` | dev server with hot reload on :5173 |
 | `npm run build` | typecheck (`tsc -b`) then production build to `dist/` |
-| `npm run preview` | serve the built `dist/` locally |
+| `npm test` | run the test suite once |
+| `npm run test:watch` | tests in watch mode |
 | `npm run lint` | oxlint |
 
-### API key (optional)
+### API keys
 
-The app talks to [pokemontcg.io](https://pokemontcg.io/) directly from the
-browser — the API sends `access-control-allow-origin: *`, so no proxy is needed.
-
-Anonymous access is capped at **1000 requests/day and 30/minute**. The app is
-built around that budget (cards are cached in IndexedDB and fetched once ever),
-so you can run it with no key at all. If you do hit the ceiling:
+Four of the six games need no key at all — Magic (Scryfall), Yu-Gi-Oh!
+(YGOPRODeck) and Lorcana (Lorcast) are open, and Pokémon works anonymously.
 
 ```bash
 cp .env.example .env.local
-# then set VITE_POKEMONTCG_API_KEY=your-key   → 20,000/day
 ```
 
-Keys are free. Restart the dev server after adding one.
+| Variable | Needed for | Without it |
+|---|---|---|
+| `VITE_POKEMONTCG_API_KEY` | Pokémon | Optional — anonymous is 1000/day, a key gives 20,000 |
+| `VITE_APITCG_API_KEY` | Star Wars, One Piece | **Those two games show a "not set up yet" panel.** Free key at [apitcg.com/register](https://apitcg.com/register) |
+
+Restart the dev server after adding one.
+
+### Heads-up: the data sources have quirks
+
+Each provider is documented in **[ARCHITECTURE.md](ARCHITECTURE.md)**, including
+the limitations that are real and deliberate. The two worth knowing up front:
+
+- **Yu-Gi-Oh! card images are hotlinked against YGOPRODeck's terms**, which ask
+  callers to re-host. This works locally but **needs an image proxy before any
+  public deployment**.
+- **The Pokémon TCG API returns 500s and 502s under light bursts.** The client
+  retries with backoff and serves cached data, so it's mostly invisible. One
+  quirk while debugging: an API 5xx arrives in the browser as
+  `TypeError: Failed to fetch`, **not** a status code — Cloudflare's error pages
+  don't carry the CORS header, so the browser blocks the response before your
+  code sees it.
 
 ### Filling the binder quickly
 
 Adding thirty cards by hand to test paging is tedious, so dev builds expose:
 
 ```js
-__pokecol.seed("base1", 30)   // first 30 Base Set cards
-__pokecol.seed("base2", 14)   // and some Jungle
-__pokecol.clear()             // empty it again
+__pokecol.seed("base1", 30)              // first 30 Base Set cards
+__pokecol.seed("blb", 12, "magic")       // 12 Bloomburrow cards into Magic
+__pokecol.clear()                        // empty the Pokemon collection
+__pokecol.clear("magic")                 // empty the Magic one
 ```
 
 Run these in the browser console. They're stripped from production builds.
-
-### Heads-up: the API is flaky
-
-The Pokémon TCG API returns 500s and 502s under even light bursts, well inside
-its rate limit. The client retries with backoff and serves cached data when a
-request fails, so this is mostly invisible — but if search feels slow for a few
-seconds, that's usually why, not your machine.
-
-One quirk worth knowing while debugging: an API 5xx arrives in the browser as
-`TypeError: Failed to fetch`, **not** a status code. Cloudflare's error pages
-don't carry the CORS header, so the browser blocks the response before your code
-sees it.
 
 ---
 
@@ -134,12 +161,12 @@ sees it.
 
 Rough order of value:
 
-- [ ] **Tests.** There are none. `useBinderPages` (sheet chunking, set
-      boundaries), `setCompletion`, `layoutStore.place` (the swap and the
-      baseline freeze), `naturalCompare`, and the `buildQuery` escaping are pure
-      functions and the obvious first targets; the flip controller needs
-      component tests around cancellation, and the two pointer gestures need
-      tests around the tap/drag threshold that separates them.
+- [x] **Tests.** `npm test` covers the cache's single-flight and abort
+      behaviour, `layoutStore` (swap, baseline freeze, undo, per-game
+      partitioning), the binder layout functions, and every provider's
+      normaliser against captured live responses. Still missing: the flip
+      controller around cancellation, and the two pointer gestures around the
+      tap/drag threshold.
 - [ ] **Accounts and sync.** `CollectionStore` was built for this — implement
       the interface against an API and swap one export. See ARCHITECTURE.md.
 - [ ] **Sort and group options.** Currently fixed to set-then-number. Recently
@@ -149,8 +176,7 @@ Rough order of value:
       which numbers are missing.
 - [x] **Drag or swipe to turn pages**, following the pointer rather than
       committing on click.
-- [ ] **A second TCG.** The provider seam exists but has only ever had one
-      implementation, so it's unproven.
+- [x] **A second TCG.** Six now, behind one `CardProvider` contract.
 - [x] **Variants** — holo vs reverse holo vs 1st edition are different things to
       a collector but one `cardId` here.
 - [ ] **Virtualise long binders.** Only the current spread renders, so it's fine
@@ -160,15 +186,13 @@ Rough order of value:
       `localStorage` — one cleared profile and it's gone. A JSON round-trip is
       small and buys a backup, plus a way to move between machines before
       accounts exist.
-- [ ] **Undo a move.** `layoutStore.place` swaps two pockets, so the inverse is
-      exactly one more `place` call — but there's nowhere to trigger it, and a
-      mis-drop currently has to be dragged back by hand.
-- [ ] **Collection value.** `tcgplayer.prices` is already fetched per variant to
-      decide which printings exist, so the numbers are sitting there unused —
-      per-card, per-set and total, priced by the variant actually owned.
-- [ ] **A wishlist.** Full-set view already knows every number you're missing;
-      letting those gaps be marked *wanted* turns the binder into a want list
-      without a second data model.
+- [x] **Undo a move.** One level, in memory, on a toolbar button and Ctrl/Cmd+Z.
+- [x] **Collection value.** Priced by the printing actually owned, with
+      unpriced cards surfaced rather than counted as zero. Per-set totals are
+      still to do.
+- [x] **A wishlist.** Its own section, scoped per game, storing the printing
+      you want. Marking gaps *wanted* straight from the full-set view is still
+      to do.
 - [ ] **A duplicates view.** Quantities are tracked (`×N`) but never surfaced as
       "here is everything you have spare" — the thing you'd actually take to a
       trade.
@@ -182,16 +206,26 @@ Rough order of value:
 
 ## Tech
 
-Vite 8 · React 19 · TypeScript 6 · React Router 8 · CSS Modules · idb-keyval.
-No UI kit, no animation library, no page-flip library — the binder is
+Vite 8 · React 19 · TypeScript 6 · React Router 8 · CSS Modules · idb-keyval ·
+Vitest. No UI kit, no animation library, no page-flip library — the binder is
 hand-rolled CSS 3D driven by the Web Animations API.
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for how it's all wired together.
 
 ## Notes
 
-Card data and imagery come from the [Pokémon TCG API](https://pokemontcg.io/).
-Pokémon and all card artwork are © Nintendo / Creatures Inc. / GAME FREAK inc.
-This is an unofficial fan project, not affiliated with or endorsed by them. No
-artwork is stored in this repository — the app loads images from the API's CDN
-at runtime (screenshots above excepted).
+Card data and imagery come from [Pokémon TCG API](https://pokemontcg.io/),
+[Scryfall](https://scryfall.com/), [YGOPRODeck](https://ygoprodeck.com/),
+[Lorcast](https://lorcast.com/) and [apitcg.com](https://apitcg.com/).
+
+All card artwork, names and logos are the property of their respective rights
+holders — Nintendo / Creatures Inc. / GAME FREAK inc., Wizards of the Coast,
+Konami, Fantasy Flight Games, Bandai and Disney. This is an unofficial fan
+project, not affiliated with or endorsed by any of them. No artwork and no
+trademarked logos or typefaces are stored in this repository: the per-game
+branding in the header is plain text styled with system fonts, and card images
+are loaded from each provider's CDN at runtime (screenshots above excepted).
+
+**Before deploying publicly**, see the Yu-Gi-Oh! image-hosting limitation in
+[ARCHITECTURE.md](ARCHITECTURE.md) — YGOPRODeck asks callers to re-host rather
+than hotlink, and CardCol currently hotlinks.

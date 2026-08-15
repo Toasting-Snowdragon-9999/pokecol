@@ -1,4 +1,5 @@
 import type { Card, CardProvider, CardSearchParams, CardSet, Paged } from "../../core/types";
+import { GAMES } from "../../core/games";
 import {
   buildQuery,
   getCardsByIds,
@@ -24,7 +25,9 @@ async function resolveQuery(params: CardSearchParams, signal?: AbortSignal): Pro
 
 export const pokemonProvider: CardProvider = {
   id: "pokemon",
-  label: "Pokémon",
+  label: GAMES.pokemon.label,
+  theme: GAMES.pokemon.theme,
+  capabilities: { pricing: true, setRosters: true, setFilter: true, variants: true },
 
   async searchCards(params: CardSearchParams): Promise<Paged<Card>> {
     const pageSize = Math.min(params.pageSize, MAX_PAGE_SIZE);

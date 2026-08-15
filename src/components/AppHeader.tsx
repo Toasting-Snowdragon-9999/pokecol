@@ -1,19 +1,19 @@
 import { NavLink } from "react-router";
 import { useCollection } from "../collection/context";
+import { useWishlist } from "../wishlist/context";
+import { GameSwitcher } from "./GameSwitcher";
 import styles from "./AppHeader.module.css";
 
 export function AppHeader() {
   const { uniqueCards, totalCards } = useCollection();
+  const { count: wishlistCount } = useWishlist();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? `${styles.link} ${styles.active}` : styles.link;
 
   return (
     <header className={styles.header}>
-      <NavLink to="/collection" className={styles.brand}>
-        <span className={styles.mark} aria-hidden="true" />
-        <span className={styles.brandName}>PokéCol</span>
-      </NavLink>
+      <GameSwitcher />
 
       <nav className={styles.nav} aria-label="Main">
         <NavLink to="/find" className={linkClass}>
@@ -21,6 +21,10 @@ export function AppHeader() {
         </NavLink>
         <NavLink to="/collection" className={linkClass}>
           My Collection
+        </NavLink>
+        <NavLink to="/wishlist" className={linkClass}>
+          Wishlist
+          {wishlistCount > 0 && <span className={styles.badge}>{wishlistCount}</span>}
         </NavLink>
       </nav>
 

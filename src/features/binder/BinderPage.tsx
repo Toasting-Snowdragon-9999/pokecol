@@ -1,15 +1,19 @@
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CardDetailModal } from "../../components/CardDetailModal";
-import { ErrorState, Spinner } from "../../components/States";
+import { ErrorState, Spinner, UnavailableState } from "../../components/States";
 import { useCollection } from "../../collection/context";
 import { useCollectionCards } from "../../collection/useCollectionCards";
 import type { Card } from "../../core/types";
+import type { GameId } from "../../core/games";
+import { useActiveGame } from "../../game/context";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { Binder } from "./Binder";
 import { useBinderPages } from "./useBinderPages";
 import type { BinderView } from "./useBinderPages";
 import type { BinderOrder } from "./useBinderPages";
 import { useSetRosters } from "./useSetRosters";
+import { CollectionValue } from "../value/CollectionValue";
+import { useCollectionValue } from "../value/useCollectionValue";
 import { layoutStore, placementKey } from "./layoutStore";
 import type { ArrangementEntry, CollectionLayout } from "./layoutStore";
 import type { PocketAddress } from "./useCardDrag";
@@ -20,10 +24,10 @@ import styles from "./BinderPage.module.css";
  * so this stays referentially stable between writes and doesn't re-run the
  * binder's layout memo on every render.
  */
-function useLayout(): CollectionLayout {
+function useLayout(gameId: GameId): CollectionLayout {
   return useSyncExternalStore(
     (listener) => layoutStore.subscribe(listener),
-    () => layoutStore.read(),
+    () => layoutStore.read(gameId),
   );
 }
 
@@ -31,18 +35,20 @@ function useLayout(): CollectionLayout {
 const SINGLE_PAGE_QUERY = "(max-width: 760px)";
 
 export function BinderPage() {
+  const { gameId, provider } = useActiveGame();
   const { quantityOf, variantsOwned } = useCollection();
   const { cards, loading, error, retry } = useCollectionCards();
   const singlePage = useMediaQuery(SINGLE_PAGE_QUERY);
   const [openCard, setOpenCard] = useState<Card | null>(null);
   const [view, setView] = useState<BinderView>("owned");
   const [order, setOrder] = useState<BinderOrder>("set");
-  const layout = useLayout();
+  const layout = useLayout(gameId);
 
   const arrangementRef = useRef<ArrangementEntry[]>([]);
 
   const handleMoveCard = useCallback((card: Card, _from: PocketAddress, to: PocketAddress) => {
     layoutStore.place(
+      card.gameId,
       placementKey(card.gameId, card.id),
       to.page,
       to.slot,
@@ -50,9 +56,19 @@ export function BinderPage() {
     );
   }, []);
 
-  // Only the sets actually started — rosters are several requests each.
+  const handleUndoMove = useCallback(() => layoutStore.undo(), []);
+  /*
+   * Read during render rather than held in state: every transition of the undo
+   * slot happens inside a `place`/`undo`/`clear`, each of which notifies, and
+   * `useLayout` above is already subscribed to exactly those notifications.
+   */
+  const canUndo = layoutStore.canUndo();
+  const value = useCollectionValue(cards);
+
+  // Only the sets actually started — rosters are several requests each, and
+  // some games have no roster to fetch at all.
   const setIds = useMemo(() => [...new Set(cards.map((card) => card.set.id))], [cards]);
-  const rosters = useSetRosters(setIds, cards.length > 0);
+  const rosters = useSetRosters(setIds, cards.length > 0 && provider.capabilities.setRosters);
 
   const counts = useMemo(
     () => ({
@@ -67,6 +83,7 @@ export function BinderPage() {
     rosters,
     order,
     placements: layout.placements,
+    gameId,
   });
 
   /** Where every card sits right now, used to pin the layout on the first move. */
@@ -86,6 +103,16 @@ export function BinderPage() {
   // Read through a ref so the drop handler stays stable and never re-subscribes
   // the pointer listeners mid-drag.
   arrangementRef.current = arrangement;
+
+  // A game we can't talk to at all explains itself, rather than showing an
+  // empty binder that looks like a collection the reader has lost.
+  if (provider.unavailableReason) {
+    return (
+      <div className={styles.page}>
+        <UnavailableState game={provider.label} reason={provider.unavailableReason} />
+      </div>
+    );
+  }
 
   if (error && cards.length === 0) {
     return (
@@ -108,6 +135,11 @@ export function BinderPage() {
 
   return (
     <div className={`${styles.page} ${singlePage ? styles.singlePage : ""}`}>
+      {provider.capabilities.pricing && cards.length > 0 && (
+        <div className={styles.valueRow}>
+          <CollectionValue total={value} />
+        </div>
+      )}
       <Binder
         spreads={spreads}
         singlePage={singlePage}
@@ -116,9 +148,12 @@ export function BinderPage() {
         view={view}
         onViewChange={setView}
         showViewToggle={cards.length > 0}
+        showFullSetToggle={provider.capabilities.setRosters}
         order={order}
         onOrderChange={setOrder}
         onMoveCard={handleMoveCard}
+        onUndoMove={handleUndoMove}
+        canUndo={canUndo}
       />
       <CardDetailModal
         card={openCard}
@@ -129,6 +164,7 @@ export function BinderPage() {
                 pageCount: singlePage ? spreads.length : spreads.length * 2,
                 onMove: (page, slot) => {
                   layoutStore.place(
+                    openCard.gameId,
                     placementKey(openCard.gameId, openCard.id),
                     page,
                     slot,

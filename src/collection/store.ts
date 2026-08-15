@@ -1,4 +1,5 @@
-import type { GameId } from "../core/types";
+import { cardKey, DEFAULT_GAME } from "../core/games";
+import type { GameId } from "../core/games";
 
 /**
  * What we actually own. Deliberately only identity + quantity — full card data
@@ -17,7 +18,7 @@ export interface CollectionEntry {
 
 /** Identity of one owned printing. */
 export function entryKey(gameId: GameId, cardId: string, variantId: string): string {
-  return `${gameId}:${cardId}:${variantId}`;
+  return `${cardKey(gameId, cardId)}:${variantId}`;
 }
 
 /**
@@ -26,7 +27,8 @@ export function entryKey(gameId: GameId, cardId: string, variantId: string): str
  * `CollectionProvider` with no callers touched.
  */
 export interface CollectionStore {
-  list(): Promise<CollectionEntry[]>;
+  /** Entries for one game. Never returns another game's rows, so no caller filters. */
+  list(gameId: GameId): Promise<CollectionEntry[]>;
   /** `quantity <= 0` removes the entry. */
   setQuantity(
     gameId: GameId,
@@ -34,14 +36,19 @@ export interface CollectionStore {
     variantId: string,
     quantity: number,
   ): Promise<void>;
-  clear(): Promise<void>;
+  clear(gameId: GameId): Promise<void>;
   /** Returns an unsubscribe function. Fires on local and cross-tab changes. */
   subscribe(listener: () => void): () => void;
 }
 
-const STORAGE_KEY = "pokecol.collection.v2";
-/** Pre-variant collections. Read once to migrate, then kept as a rollback copy. */
-const LEGACY_STORAGE_KEY = "pokecol.collection.v1";
+const STORAGE_KEY = "cardcol.collection.v3";
+/**
+ * Earlier collections, read once to migrate and then kept as rollback copies.
+ * v1 predates variants; v2 predates CardCol but already carried `gameId`, so
+ * folding it in is a rename rather than a reshape.
+ */
+const LEGACY_V2_KEY = "pokecol.collection.v2";
+const LEGACY_V1_KEY = "pokecol.collection.v1";
 const MAX_QUANTITY = 99;
 
 /**
@@ -52,56 +59,61 @@ const MAX_QUANTITY = 99;
 const UNSPECIFIED_VARIANT_ID = "unspecified";
 
 interface StoredShape {
-  version: 2;
+  version: 3;
   entries: CollectionEntry[];
-}
-
-interface LegacyStoredShape {
-  version: 1;
-  entries: Omit<CollectionEntry, "variantId">[];
 }
 
 function isUsable(entry: { cardId?: unknown; quantity?: unknown }): boolean {
   return typeof entry?.cardId === "string" && Number.isFinite(entry.quantity);
 }
 
-/**
- * Read v1 and convert. The v1 key is deliberately left in place: this is the
- * user's whole collection, and a one-way rewrite with no way back is not a
- * risk worth taking to save a few kilobytes.
- */
-function migrateLegacy(): CollectionEntry[] | null {
-  try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as LegacyStoredShape;
-    if (parsed?.version !== 1 || !Array.isArray(parsed.entries)) return null;
-
-    const migrated: CollectionEntry[] = parsed.entries
-      .filter(isUsable)
-      .map((entry) => ({ ...entry, variantId: UNSPECIFIED_VARIANT_ID }));
-
-    write(migrated);
-    return migrated;
-  } catch {
-    return null;
-  }
+function normaliseEntry(entry: Partial<CollectionEntry>): CollectionEntry {
+  return {
+    ...(entry as CollectionEntry),
+    // Tolerate entries that predate a field rather than dropping the row: this
+    // is the user's collection, and losing it is worse than guessing.
+    gameId: entry.gameId ?? DEFAULT_GAME,
+    variantId: entry.variantId ?? UNSPECIFIED_VARIANT_ID,
+  };
 }
 
-function read(): CollectionEntry[] {
+/**
+ * Fold the newest legacy key we can find into v3.
+ *
+ * Legacy keys are deliberately left in place: this is the user's whole
+ * collection, and a one-way rewrite with no way back is not a risk worth
+ * taking to save a few kilobytes.
+ */
+function migrateLegacy(): CollectionEntry[] | null {
+  for (const key of [LEGACY_V2_KEY, LEGACY_V1_KEY]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw) as { version?: number; entries?: unknown };
+      if (!Array.isArray(parsed.entries)) continue;
+
+      const migrated = (parsed.entries as Partial<CollectionEntry>[])
+        .filter(isUsable)
+        .map(normaliseEntry);
+      write(migrated);
+      return migrated;
+    } catch {
+      /* try the next one */
+    }
+  }
+  return null;
+}
+
+function readAll(): CollectionEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return migrateLegacy() ?? [];
 
     const parsed = JSON.parse(raw) as StoredShape;
-    if (parsed.version !== 2 || !Array.isArray(parsed.entries)) return [];
+    if (parsed.version !== 3 || !Array.isArray(parsed.entries)) return [];
 
-    return parsed.entries.filter(isUsable).map((entry) => ({
-      ...entry,
-      // Tolerate an entry that somehow predates the field rather than dropping it.
-      variantId: entry.variantId ?? UNSPECIFIED_VARIANT_ID,
-    }));
+    return parsed.entries.filter(isUsable).map(normaliseEntry);
   } catch {
     // Corrupt or unavailable storage shouldn't take the binder down.
     return [];
@@ -110,7 +122,7 @@ function read(): CollectionEntry[] {
 
 function write(entries: CollectionEntry[]): void {
   try {
-    const payload: StoredShape = { version: 2, entries };
+    const payload: StoredShape = { version: 3, entries };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     /* quota or private mode — the in-session state is still correct */
@@ -123,19 +135,19 @@ export function createLocalCollectionStore(): CollectionStore {
 
   // Keep tabs in sync: `storage` fires in *other* tabs when this one writes.
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY || event.key === LEGACY_STORAGE_KEY || event.key === null) {
+    if (event.key === STORAGE_KEY || event.key === LEGACY_V2_KEY || event.key === null) {
       notify();
     }
   };
   if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
 
   return {
-    async list() {
-      return read();
+    async list(gameId) {
+      return readAll().filter((entry) => entry.gameId === gameId);
     },
 
     async setQuantity(gameId, cardId, variantId, quantity) {
-      const entries = read();
+      const entries = readAll();
       const key = entryKey(gameId, cardId, variantId);
       const index = entries.findIndex(
         (entry) => entryKey(entry.gameId, entry.cardId, entry.variantId) === key,
@@ -161,8 +173,9 @@ export function createLocalCollectionStore(): CollectionStore {
       notify();
     },
 
-    async clear() {
-      write([]);
+    async clear(gameId) {
+      // Only this game's rows — clearing Pokémon must not empty the Magic binder.
+      write(readAll().filter((entry) => entry.gameId !== gameId));
       notify();
     },
 

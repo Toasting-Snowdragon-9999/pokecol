@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Card } from "../core/types";
-import { DEFAULT_GAME, getProvider } from "../core/registry";
-import { isAbortError } from "../lib/http";
+import { useActiveGame } from "../game/context";
 import { compareCardsForBinder } from "../lib/sortCards";
 import { useCollection } from "./context";
 
@@ -19,6 +18,7 @@ interface CollectionCardsResult {
  * quantity re-renders without triggering a refetch.
  */
 export function useCollectionCards(): CollectionCardsResult {
+  const { provider } = useActiveGame();
   const { entries, loading: entriesLoading } = useCollection();
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export function useCollectionCards(): CollectionCardsResult {
     setLoading(true);
     setError(null);
 
-    getProvider(DEFAULT_GAME)
+    provider
       .getCardsByIds(idKey.split(","), controller.signal)
       .then((resolved) => {
         if (controller.signal.aborted) return;
@@ -53,13 +53,15 @@ export function useCollectionCards(): CollectionCardsResult {
         setLoading(false);
       })
       .catch((cause: unknown) => {
-        if (controller.signal.aborted || isAbortError(cause)) return;
+        // A foreign abort still has to clear `loading`, or the binder never
+        // stops saying "Opening your binder…".
+        if (controller.signal.aborted) return;
         setError(cause);
         setLoading(false);
       });
 
     return () => controller.abort();
-  }, [idKey, entriesLoading, attempt]);
+  }, [idKey, entriesLoading, attempt, provider]);
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 

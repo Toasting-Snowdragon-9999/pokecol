@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Link } from "react-router";
 import type { Card } from "../../core/types";
 import { BinderSheet } from "./BinderSheet";
@@ -19,9 +19,13 @@ interface BinderProps {
   view: BinderView;
   onViewChange: (view: BinderView) => void;
   showViewToggle: boolean;
+  /** Owned/Full set needs a set roster to measure against; not every game has one. */
+  showFullSetToggle: boolean;
   order: BinderOrder;
   onOrderChange: (order: BinderOrder) => void;
   onMoveCard: (card: Card, from: PocketAddress, to: PocketAddress) => void;
+  onUndoMove: () => void;
+  canUndo: boolean;
 }
 
 export function Binder({
@@ -32,9 +36,12 @@ export function Binder({
   view,
   onViewChange,
   showViewToggle,
+  showFullSetToggle,
   order,
   onOrderChange,
   onMoveCard,
+  onUndoMove,
+  canUndo,
 }: BinderProps) {
   const {
     spread,
@@ -140,6 +147,38 @@ export function Binder({
     [goNext, goPrev],
   );
 
+  /*
+   * Undo is bound at the window rather than on the binder, because the drag
+   * that needs taking back leaves focus wherever the pointer finished — usually
+   * nowhere in particular. Only meaningful in custom order, where placements
+   * are honoured at all.
+   */
+  useEffect(() => {
+    if (order !== "custom") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "z" && event.key !== "Z") return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      // Shift+Ctrl+Z is redo everywhere else; leave it alone rather than
+      // quietly doing the opposite of what it means.
+      if (event.shiftKey) return;
+
+      // Never steal the shortcut from real text editing, or from the card
+      // dialog, which is modal and has its own concerns.
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) {
+        return;
+      }
+      if (document.querySelector("dialog[open]")) return;
+
+      event.preventDefault();
+      onUndoMove();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [order, onUndoMove]);
+
   return (
     <div className={styles.stage}>
       {showViewToggle && (
@@ -160,7 +199,7 @@ export function Binder({
 
           {/* Owned/Full set describes a set-organised binder; a custom
               arrangement has no set structure for it to act on. */}
-          {order === "set" && (
+          {order === "set" && showFullSetToggle && (
             <div className={styles.viewToggle} role="group" aria-label="Binder layout">
               {(["owned", "full"] as const).map((option) => (
                 <button
@@ -177,7 +216,18 @@ export function Binder({
           )}
 
           {order === "custom" && (
-            <p className={styles.toolbarHint}>Drag cards between sleeves to arrange them.</p>
+            <>
+              <button
+                type="button"
+                className={styles.undoButton}
+                onClick={onUndoMove}
+                disabled={!canUndo}
+                title={canUndo ? "Undo the last move (Ctrl+Z)" : "Nothing to undo"}
+              >
+                ↩ Undo move
+              </button>
+              <p className={styles.toolbarHint}>Drag cards between sleeves to arrange them.</p>
+            </>
           )}
         </div>
       )}
@@ -186,7 +236,7 @@ export function Binder({
         className={styles.binder}
         role="group"
         aria-roledescription="card binder"
-        aria-label="Your Pokémon card binder"
+        aria-label="Your card binder"
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >

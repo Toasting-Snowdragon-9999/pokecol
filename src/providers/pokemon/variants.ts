@@ -1,4 +1,5 @@
-import type { CardVariant } from "../../core/types";
+import type { CardVariant, VariantFinish } from "../../core/types";
+import type { CardPrice, CardPriceMap } from "../../core/pricing";
 import type { PokemonApiCard } from "./types";
 
 /**
@@ -55,8 +56,24 @@ const RANK = [
   "1stEditionHolofoil",
 ];
 
+/** Pokémon print ids mapped onto the cross-game buckets. Advisory only. */
+const FINISHES: Record<string, VariantFinish> = {
+  normal: "normal",
+  holofoil: "holo",
+  reverseHolofoil: "reverseHolo",
+  "1stEdition": "firstEdition",
+  "1stEditionHolofoil": "firstEdition",
+  unlimited: "unlimited",
+  unlimitedHolofoil: "unlimited",
+  [UNSPECIFIED_VARIANT_ID]: "unspecified",
+};
+
 export function variantLabel(id: string): string {
   return LABELS[id] ?? id;
+}
+
+function finishOf(id: string): VariantFinish {
+  return FINISHES[id] ?? "special";
 }
 
 function rankOf(id: string): number {
@@ -70,11 +87,54 @@ function rankOf(id: string): number {
 export function extractVariants(raw: Pick<PokemonApiCard, "tcgplayer">): CardVariant[] {
   const keys = Object.keys(raw.tcgplayer?.prices ?? {});
   if (keys.length === 0) {
-    return [{ id: UNSPECIFIED_VARIANT_ID, label: variantLabel(UNSPECIFIED_VARIANT_ID) }];
+    return [
+      {
+        id: UNSPECIFIED_VARIANT_ID,
+        label: variantLabel(UNSPECIFIED_VARIANT_ID),
+        finish: "unspecified",
+      },
+    ];
   }
 
   return keys
     .slice()
     .sort((a, b) => rankOf(a) - rankOf(b) || a.localeCompare(b))
-    .map((id) => ({ id, label: variantLabel(id) }));
+    .map((id) => ({ id, label: variantLabel(id), finish: finishOf(id) }));
+}
+
+/**
+ * Market price per printing, keyed by the same variant ids as `extractVariants`.
+ *
+ * TCGplayer's `market` is the figure to use — `low`/`mid` describe current
+ * listings rather than what cards actually change hands for. `mid` is taken
+ * only when `market` is absent, and a printing with neither is simply left out:
+ * unknown has to stay distinguishable from free.
+ */
+export function extractPrices(raw: Pick<PokemonApiCard, "tcgplayer">): CardPriceMap | undefined {
+  const prices = raw.tcgplayer?.prices;
+  if (!prices) return undefined;
+
+  const updatedAt = raw.tcgplayer?.updatedAt;
+  const map: CardPriceMap = {};
+  let found = false;
+
+  for (const [id, value] of Object.entries(prices)) {
+    if (!value) continue;
+    const market = typeof value.market === "number" ? value.market : null;
+    const mid = typeof value.mid === "number" ? value.mid : null;
+    const amount = market ?? mid;
+    if (amount === null || !Number.isFinite(amount) || amount <= 0) continue;
+
+    const price: CardPrice = {
+      amount,
+      currency: "USD",
+      source: "TCGplayer",
+      kind: market !== null ? "market" : "mid",
+      updatedAt,
+    };
+    map[id] = price;
+    found = true;
+  }
+
+  return found ? map : undefined;
 }

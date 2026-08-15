@@ -27,8 +27,10 @@ const ID_BATCH_CONCURRENCY = 2;
  * migrated instead.)
  *
  * v2: cards gained `variants` / `defaultVariantId`.
+ * v3: variants gained `finish`, and cards gained `prices` — the price values
+ *     were previously fetched and thrown away.
  */
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 
 const apiKey = import.meta.env.VITE_POKEMONTCG_API_KEY as string | undefined;
 
@@ -90,41 +92,51 @@ export async function searchCards(
   // Search results hold normalised cards too, so they share the shape version.
   const key = cacheKey("search", { v: CACHE_VERSION, q, page, size });
 
-  return cached(key, TTL.search, async () => {
-    const url = buildUrl("/cards", {
-      q,
-      page,
-      pageSize: size,
-      orderBy: "-set.releaseDate,number",
-    });
-    const response = await fetchJson<PokemonApiList<PokemonApiCard>>(url, {
-      signal,
-      headers: headers(),
-    });
+  return cached(
+    key,
+    TTL.search,
+    async (loadSignal) => {
+      const url = buildUrl("/cards", {
+        q,
+        page,
+        pageSize: size,
+        orderBy: "-set.releaseDate,number",
+      });
+      const response = await fetchJson<PokemonApiList<PokemonApiCard>>(url, {
+        signal: loadSignal,
+        headers: headers(),
+      });
 
-    const cards = response.data.map(normaliseCard);
-    // Warm the per-card cache so opening any of these in the binder later is free.
-    await Promise.all(cards.map((card) => writeEntry(cardCacheKey(card.id), card)));
+      const cards = response.data.map(normaliseCard);
+      // Warm the per-card cache so opening any of these in the binder later is free.
+      await Promise.all(cards.map((card) => writeEntry(cardCacheKey(card.id), card)));
 
-    return {
-      cards,
-      totalCount: response.totalCount,
-      page: response.page,
-      pageSize: response.pageSize,
-    };
-  });
+      return {
+        cards,
+        totalCount: response.totalCount,
+        page: response.page,
+        pageSize: response.pageSize,
+      };
+    },
+    signal,
+  );
 }
 
 export async function listSets(signal?: AbortSignal): Promise<CardSet[]> {
-  return cached(cacheKey("sets", { game: "pokemon" }), TTL.sets, async () => {
-    // All 174 sets arrive in a single request, so the set filter costs one call.
-    const url = buildUrl("/sets", { pageSize: 500, orderBy: "-releaseDate" });
-    const response = await fetchJson<PokemonApiList<PokemonApiSet>>(url, {
-      signal,
-      headers: headers(),
-    });
-    return response.data.map(normaliseSet);
-  });
+  return cached(
+    cacheKey("sets", { game: "pokemon" }),
+    TTL.sets,
+    async (loadSignal) => {
+      // All 174 sets arrive in a single request, so the set filter costs one call.
+      const url = buildUrl("/sets", { pageSize: 500, orderBy: "-releaseDate" });
+      const response = await fetchJson<PokemonApiList<PokemonApiSet>>(url, {
+        signal: loadSignal,
+        headers: headers(),
+      });
+      return response.data.map(normaliseSet);
+    },
+    signal,
+  );
 }
 
 /**
@@ -142,32 +154,37 @@ export async function listSets(signal?: AbortSignal): Promise<CardSet[]> {
 export async function getSetCards(setId: string, signal?: AbortSignal): Promise<Card[]> {
   const key = cacheKey("roster", { v: CACHE_VERSION, setId });
 
-  return cached(key, TTL.card, async () => {
-    const q = `set.id:${sanitiseTerm(setId)}`;
-    const collected: Card[] = [];
+  return cached(
+    key,
+    TTL.card,
+    async (loadSignal) => {
+      const q = `set.id:${sanitiseTerm(setId)}`;
+      const collected: Card[] = [];
 
-    for (let page = 1; ; page++) {
-      const url = buildUrl("/cards", {
-        q,
-        page,
-        pageSize: MAX_PAGE_SIZE,
-        orderBy: "number",
-      });
-      const response = await fetchJson<PokemonApiList<PokemonApiCard>>(url, {
-        signal,
-        headers: headers(),
-      });
+      for (let page = 1; ; page++) {
+        const url = buildUrl("/cards", {
+          q,
+          page,
+          pageSize: MAX_PAGE_SIZE,
+          orderBy: "number",
+        });
+        const response = await fetchJson<PokemonApiList<PokemonApiCard>>(url, {
+          signal: loadSignal,
+          headers: headers(),
+        });
 
-      const cards = response.data.map(normaliseCard);
-      collected.push(...cards);
-      // Warm the per-card cache; these are the same objects the binder needs.
-      await Promise.all(cards.map((card) => writeEntry(cardCacheKey(card.id), card)));
+        const cards = response.data.map(normaliseCard);
+        collected.push(...cards);
+        // Warm the per-card cache; these are the same objects the binder needs.
+        await Promise.all(cards.map((card) => writeEntry(cardCacheKey(card.id), card)));
 
-      if (collected.length >= response.totalCount || response.data.length === 0) break;
-    }
+        if (collected.length >= response.totalCount || response.data.length === 0) break;
+      }
 
-    return collected;
-  });
+      return collected;
+    },
+    signal,
+  );
 }
 
 export function cardCacheKey(id: string): string {

@@ -1,6 +1,6 @@
 # Architecture
 
-Everything a new engineer needs to work on PokéCol: how it's layered, what each
+Everything a new engineer needs to work on CardCol: how it's layered, what each
 file does, what the data looks like, and where the non-obvious decisions are.
 
 Read the **Data flow** section first — the rest is reference.
@@ -9,15 +9,16 @@ Read the **Data flow** section first — the rest is reference.
 
 ## 1. The shape of it
 
-A client-only React SPA. No server, no database, no build-time data.
+A client-only React SPA. No server, no database, no build-time data. Six card
+games, each behind its own adapter, all speaking one normalised model.
 
 ```
-   ┌─────────────┐  HTTP    ┌──────────────────┐
-   │   Browser   │─────────▶│  pokemontcg.io   │   CORS: *, no key required
-   └─────────────┘          └──────────────────┘
-         │
-         ├── IndexedDB  →  cached cards, sets, searches
-         └── localStorage → what you own (ids + quantities)
+   ┌─────────────┐  HTTP    ┌────────────────────────────────┐
+   │   Browser   │─────────▶│ pokemontcg.io · Scryfall ·      │
+   └─────────────┘          │ YGOPRODeck · Lorcast · apitcg   │
+         │                  └────────────────────────────────┘
+         ├── IndexedDB  →  cached cards, sets, searches (per game)
+         └── localStorage → what you own, want, and how you arranged it
 ```
 
 Four layers, each depending only on the one above it:
@@ -26,7 +27,7 @@ Four layers, each depending only on the one above it:
 |---|---|---|
 | **Model** | `src/core/` | nothing — pure types |
 | **Provider** | `src/providers/` | one TCG's API, and the model |
-| **State** | `src/collection/` | the model + storage |
+| **State** | `src/collection/`, `src/wishlist/`, `src/game/` | the model + storage |
 | **UI** | `src/features/`, `src/components/` | all of the above |
 | *(support)* | `src/lib/` | nothing app-specific |
 
@@ -34,6 +35,18 @@ The rule that keeps this honest: **nothing above the provider layer knows what a
 "Pokémon" is.** The binder, the collection and the search UI only ever see a
 normalised `Card`. Adding another TCG means writing one more provider, not
 touching the UI.
+
+Where games genuinely differ, the UI reads a **capability flag**
+(`provider.capabilities`) rather than checking which game is active. There is no
+`if (gameId === "pokemon")` anywhere above `src/providers/`, and adding one is
+the wrong fix for anything.
+
+### Card identity
+
+Card ids are only unique *within* a game — `"1"` is a real card in three of
+these. Everything that stores or caches a card qualifies it:
+`cardKey(gameId, cardId)` → `"pokemon:base1-4"`. Collection entries, wishlist
+entries, binder placements and cache keys all carry the game.
 
 ---
 
@@ -170,14 +183,49 @@ That's the entire abstraction. One map, one lookup. Resist growing it.
 
 ---
 
-## 4. The provider — `src/providers/pokemon/`
+## 4. The providers — `src/providers/`
 
-| File | Responsibility |
-|---|---|
-| `types.ts` | Raw API response shapes. Only the fields we read. |
-| `api.ts` | URLs, query building, caching, batching, the measured limits. |
-| `normalize.ts` | `PokemonApiCard → Card`. The only place raw shapes are understood. |
-| `index.ts` | Assembles `pokemonProvider`; handles the empty-query fallback. |
+Every adapter has the same three or four files: `types.ts` (raw response shapes,
+only the fields we read), `normalize.ts` (raw → `Card`, the only place raw
+shapes are understood), and `index.ts` (assembles the `CardProvider`). Pokémon
+additionally splits out `api.ts` and `variants.ts`.
+
+`src/providers/shared/throttle.ts` holds request spacing, declared per adapter
+because the limits and the punishments differ enormously.
+
+### The six, and what each costs
+
+| Game | Source | Key | Prices | Variants | Set rosters |
+|---|---|---|---|---|---|
+| Pokémon | pokemontcg.io v2 | optional | ✅ TCGplayer | from price keys | ✅ |
+| Magic | Scryfall | none | ✅ USD/foil/etched | ✅ real `finishes` | ✅ |
+| Yu-Gi-Oh! | YGOPRODeck v7 | none | ⚠️ per card, not per printing | per-printing rarity | ❌ |
+| Disney Lorcana | Lorcast v0 | none | ✅ normal + foil | normal/foil | ✅ |
+| Star Wars: Unlimited | apitcg.com | **required** | ✅ TCGplayer | ❌ | ❌ |
+| One Piece | apitcg.com | **required** | ✅ TCGplayer | ❌ | ❌ |
+
+All five hosts were verified to send `access-control-allow-origin: *`.
+
+### Known limitations — read before "fixing" any of these
+
+- **Yu-Gi-Oh! images are hotlinked against YGOPRODeck's stated terms.** They ask
+  callers to re-host and say repeat hotlinking earns an IP blacklist. CardCol
+  loads art from provider CDNs by design, so this game is knowingly
+  non-compliant. **An image proxy is required before any public deployment.**
+- **Yu-Gi-Oh! has no per-card set.** A popular card has a dozen printings, so
+  the earliest is treated as its binder home and the rest become a detail row.
+  `setRosters` is false: there is no roster to complete.
+- **Star Wars and One Piece are inert without `VITE_APITCG_API_KEY`.** Both set
+  `unavailableReason`, which the UI renders as an explanation rather than an
+  error or an endless spinner.
+- **swu-db.com was rejected for Star Wars** despite better data (per-variant
+  types, market prices): it sends no CORS header, so a browser cannot call it.
+  Using it would mean running a proxy, which costs the app its "no backend"
+  property.
+- **Scryfall and Lorcast 404 on an empty result set.** Both adapters translate
+  that to an empty page; without it every fruitless search looks like an outage.
+- **Yu-Gi-Oh! paging has no total.** "There is more" is inferred from a full
+  page, which costs one trailing empty page rather than a second count request.
 
 ### Measured API limits (`api.ts`)
 
@@ -490,8 +538,18 @@ Two gotchas already paid for:
 
 ## 12. Known gaps
 
-- **No tests.** Verified by driving the app in a browser.
-- The provider seam has only ever had one implementation, so it's unproven.
+- **Test coverage is partial.** `npm test` covers the cache's single-flight and
+  abort behaviour, `layoutStore` (swap, baseline freeze, undo, partitioning),
+  the binder layout functions, and every provider's normaliser against captured
+  live responses. Components and hooks are still verified by driving the app.
+- **Provider fixtures go stale.** `src/providers/__fixtures__/*.json` were
+  captured from the live APIs; refresh them by re-fetching the same card if a
+  normaliser test starts failing for no local reason. That failure *is* the
+  early warning — these are free services that reshape payloads without notice.
 - No virtualisation: resolving a very large collection is many sequential-ish
   batched requests on first load (cached forever after).
-- Card variants (holo / reverse holo / 1st edition) collapse into one `cardId`.
+- Undo is one level and in-memory: a reload drops it, deliberately.
+- Yu-Gi-Oh! prices are per card rather than per printing, so a Secret Rare and
+  a Common of the same card value identically. Flagged `kind: "mid"` rather
+  than `"market"` to be honest about it.
+- Collection value has no history — it is the current estimate only.

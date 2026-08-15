@@ -27,3 +27,10 @@
   color: var(--text-muted);
   font-size: 13.5px;
 }
+
+/* Sits above the binder rather than inside it: a valuation is information
+   about the collection, not part of the physical object. */
+.valueRow {
+  display: flex;
+  justify-content: center;
+}

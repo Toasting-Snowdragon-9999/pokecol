@@ -1,0 +1,58 @@
+{
+ "id": "crd_a6f3c215973844fc8ae5cbc2a4ea388f",
+ "name": "Elsa",
+ "version": "Concerned Sister",
+ "layout": "normal",
+ "released_at": "2026-02-13",
+ "image_uris": {
+  "digital": {
+   "small": "https://cards.lorcast.io/card/digital/small/crd_a6f3c215973844fc8ae5cbc2a4ea388f.avif?1770259762",
+   "normal": "https://cards.lorcast.io/card/digital/normal/crd_a6f3c215973844fc8ae5cbc2a4ea388f.avif?1770259762",
+   "large": "https://cards.lorcast.io/card/digital/large/crd_a6f3c215973844fc8ae5cbc2a4ea388f.avif?1770259762"
+  }
+ },
+ "cost": 3,
+ "inkwell": true,
+ "ink": "Ruby",
+ "inks": [
+  "Ruby"
+ ],
+ "type": [
+  "Character"
+ ],
+ "classifications": [
+  "Storyborn",
+  "Hero",
+  "Queen",
+  "Sorcerer"
+ ],
+ "text": "CLEAR THE WAY When you play this character, you pay 2 {I} less for the next location you play this turn.",
+ "keywords": [],
+ "move_cost": null,
+ "strength": 2,
+ "willpower": 2,
+ "lore": 2,
+ "rarity": "Uncommon",
+ "illustrators": [
+  "Hollie Hibbert"
+ ],
+ "collector_number": "125",
+ "lang": "en",
+ "flavor_text": "\"The vine is worse than I thought. I'll have to take care of this myself.\"",
+ "tcgplayer_id": 673302,
+ "legalities": {
+  "core": "legal"
+ },
+ "set": {
+  "id": "set_c794231df3e14fce9f63c19c59241ee3",
+  "code": "11",
+  "name": "Winterspell"
+ },
+ "prices": {
+  "usd": 0.11,
+  "usd_foil": 0.27
+ },
+ "purchase_uris": {
+  "tcgplayer": "https://www.tcgplayer.com/product/673302"
+ }
+}

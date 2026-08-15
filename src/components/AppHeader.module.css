@@ -12,54 +12,39 @@
   border-bottom: 1px solid var(--border);
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-/* Small binder-ring glyph — a nod to the subject without borrowing any artwork. */
-.mark {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: linear-gradient(150deg, var(--binder-leather-1), var(--binder-leather-3));
-  border: 1px solid #ffffff1c;
-  position: relative;
-}
-
-.mark::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 3px;
-  bottom: 3px;
-  width: 2px;
-  transform: translateX(-50%);
-  background: linear-gradient(#ffffff55, #ffffff10);
-  border-radius: 2px;
-}
-
 .nav {
   display: flex;
   gap: 4px;
 }
 
 .link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 13px;
   border-radius: 999px;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
+  white-space: nowrap;
   transition:
     color 140ms ease,
     background 140ms ease;
+}
+
+/* Wishlist count, tinted by the active game so the header reads as one piece. */
+.badge {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-accent, var(--accent)) 24%, transparent);
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .link:hover {
@@ -95,11 +80,12 @@
     padding: 0 14px;
   }
 
-  .brandName {
+  .count {
     display: none;
   }
 
-  .count {
-    display: none;
+  .link {
+    padding: 6px 10px;
+    font-size: 12.5px;
   }
 }

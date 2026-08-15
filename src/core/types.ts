@@ -8,7 +8,10 @@
  * interface a field at a time.
  */
 
-export type GameId = "pokemon";
+import type { GameId, GameTheme } from "./games";
+import type { CardPriceMap } from "./pricing";
+
+export type { GameId } from "./games";
 
 export interface CardSet {
   id: string;
@@ -30,6 +33,27 @@ export interface CardDetail {
 }
 
 /**
+ * Cross-game bucket for a printing.
+ *
+ * Advisory only. Games disagree about what a "foil" is and some have treatments
+ * no other game has, so this exists for grouping and iconography — never for
+ * correctness. Anything user-facing shows `CardVariant.label`, which is the
+ * provider's own words.
+ */
+export type VariantFinish =
+  | "normal"
+  | "holo"
+  | "reverseHolo"
+  | "foil"
+  | "etched"
+  | "firstEdition"
+  | "unlimited"
+  | "altArt"
+  | "parallel"
+  | "special"
+  | "unspecified";
+
+/**
  * A distinct printing of a card — holo, reverse holo, 1st edition and so on.
  *
  * `id` is provider-defined and opaque above the provider layer: the collection
@@ -39,6 +63,7 @@ export interface CardDetail {
 export interface CardVariant {
   id: string;
   label: string;
+  finish: VariantFinish;
 }
 
 export interface Card {
@@ -65,6 +90,11 @@ export interface Card {
   variants: CardVariant[];
   /** Which printing a one-click "add" records. Always present in `variants`. */
   defaultVariantId: string;
+  /**
+   * Market prices per printing, when the provider publishes them. Absent
+   * entirely for games with no pricing data — which is not the same as free.
+   */
+  prices?: CardPriceMap;
 }
 
 export interface CardSearchParams {
@@ -83,9 +113,39 @@ export interface Paged<T> {
   hasMore: boolean;
 }
 
+/**
+ * What a provider can actually do.
+ *
+ * This is what keeps `if (gameId === "pokemon")` out of the components. The
+ * binder hides its "Full set" toggle when there are no rosters to measure
+ * against, Find Cards hides the set filter when set data is meaningless, and
+ * the value panel hides itself when nobody publishes prices — each by reading a
+ * flag, not by knowing which game it is looking at.
+ */
+export interface ProviderCapabilities {
+  /** `Card.prices` is populated. */
+  pricing: boolean;
+  /** `getSetCards` returns a real roster — enables full-set view and completion. */
+  setRosters: boolean;
+  /** `listSets` is worth offering as a filter. */
+  setFilter: boolean;
+  /** Cards genuinely have more than one printing. */
+  variants: boolean;
+}
+
 export interface CardProvider {
   id: GameId;
   label: string;
+  theme: GameTheme;
+  capabilities: ProviderCapabilities;
+  /**
+   * Why this game can't be used right now — a missing API key, say.
+   *
+   * Set means "explain this to the reader and don't call me"; the alternative
+   * is a game that spins forever or throws, which looks like a broken app
+   * rather than a missing setting.
+   */
+  unavailableReason?: string;
   searchCards(params: CardSearchParams): Promise<Paged<Card>>;
   listSets(signal?: AbortSignal): Promise<CardSet[]>;
   /** Resolves collection entries back into cards. Batches internally. */

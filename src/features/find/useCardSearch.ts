@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "../../core/types";
-import { DEFAULT_GAME, getProvider } from "../../core/registry";
-import { isAbortError } from "../../lib/http";
+import { useActiveGame } from "../../game/context";
 
 /** Small enough to keep a page of artwork light; well under the API's 60 ceiling. */
 export const PAGE_SIZE = 24;
@@ -30,6 +29,7 @@ const INITIAL: SearchState = {
  * changes — both to keep results consistent and to avoid burning requests.
  */
 export function useCardSearch(query: string, setId: string) {
+  const { provider } = useActiveGame();
   const [state, setState] = useState<SearchState>(INITIAL);
   const [attempt, setAttempt] = useState(0);
   const controllerRef = useRef<AbortController | null>(null);
@@ -54,7 +54,7 @@ export function useCardSearch(query: string, setId: string) {
       }));
 
       try {
-        const result = await getProvider(DEFAULT_GAME).searchCards({
+        const result = await provider.searchCards({
           query,
           setId,
           page,
@@ -75,12 +75,19 @@ export function useCardSearch(query: string, setId: string) {
           error: null,
         }));
       } catch (error) {
-        if (controller.signal.aborted || isAbortError(error)) return;
+        /*
+         * Only *our* abort means a newer run is already on its way and will set
+         * the next state. An abort arriving from anywhere else still has to
+         * clear `loading`, or the page sits on skeletons forever.
+         */
+        if (controller.signal.aborted) return;
         busyRef.current = false;
         setState((prev) => ({ ...prev, loading: false, loadingMore: false, error }));
       }
     },
-    [query, setId],
+    // `provider` changes identity when the game does, which re-runs the search
+    // against the new catalogue and discards the previous game's results.
+    [query, setId, provider],
   );
 
   useEffect(() => {

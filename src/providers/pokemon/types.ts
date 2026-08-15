@@ -22,11 +22,22 @@ export interface PokemonApiAttack {
 }
 
 /**
- * Only the price *keys* are read, never the values — their presence is what
- * tells us which printings of a card exist. See `variants.ts`.
+ * The price keys tell us which printings of a card exist (see `variants.ts`);
+ * the values give us collection value for free, since they arrive on the same
+ * response either way.
  */
+export interface PokemonApiPrice {
+  low?: number | null;
+  mid?: number | null;
+  high?: number | null;
+  market?: number | null;
+  directLow?: number | null;
+}
+
 export interface PokemonApiTcgPlayer {
-  prices?: Record<string, unknown>;
+  prices?: Record<string, PokemonApiPrice | null>;
+  /** ISO date the prices were last refreshed. */
+  updatedAt?: string;
 }
 
 export interface PokemonApiCard {

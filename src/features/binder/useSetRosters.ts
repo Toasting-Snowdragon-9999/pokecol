@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Card } from "../../core/types";
-import { DEFAULT_GAME, getProvider } from "../../core/registry";
+import { useActiveGame } from "../../game/context";
 import { isAbortError } from "../../lib/http";
 
 export type SetRosters = Map<string, Card[]>;
@@ -17,6 +17,7 @@ export type SetRosters = Map<string, Card[]>;
  * the binder stays fully usable while they load — or if they never arrive.
  */
 export function useSetRosters(setIds: string[], enabled: boolean): SetRosters {
+  const { provider } = useActiveGame();
   const [rosters, setRosters] = useState<SetRosters>(new Map());
   // Never retry a set within a session; a failing roster shouldn't loop on the
   // API budget, and the binder degrades gracefully without it.
@@ -25,10 +26,16 @@ export function useSetRosters(setIds: string[], enabled: boolean): SetRosters {
   const key = useMemo(() => [...setIds].sort().join(","), [setIds]);
 
   useEffect(() => {
+    // Set ids are only unique within a game, so a roster fetched for one game
+    // must never satisfy a lookup in another.
+    setRosters(new Map());
+    attempted.current = new Set<string>();
+  }, [provider]);
+
+  useEffect(() => {
     if (!enabled || key === "") return;
 
     const controller = new AbortController();
-    const provider = getProvider(DEFAULT_GAME);
     let active = true;
 
     void (async () => {
@@ -52,7 +59,7 @@ export function useSetRosters(setIds: string[], enabled: boolean): SetRosters {
       active = false;
       controller.abort();
     };
-  }, [key, enabled]);
+  }, [key, enabled, provider]);
 
   return rosters;
 }

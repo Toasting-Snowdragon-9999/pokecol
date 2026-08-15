@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CardSet } from "../../core/types";
-import { DEFAULT_GAME, getProvider } from "../../core/registry";
-import { isAbortError } from "../../lib/http";
+import { useActiveGame } from "../../game/context";
 
 export interface SetGroup {
   series: string;
@@ -13,23 +12,29 @@ export interface SetGroup {
  * grouped <select> with no searching or paging of its own.
  */
 export function useSets() {
+  const { provider } = useActiveGame();
   const [sets, setSets] = useState<CardSet[]>([]);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    // Never show the previous game's sets while the new list loads.
+    setSets([]);
+    setError(null);
 
-    getProvider(DEFAULT_GAME)
+    if (!provider.capabilities.setFilter || provider.unavailableReason) return;
+
+    provider
       .listSets(controller.signal)
       .then((result) => {
         if (!controller.signal.aborted) setSets(result);
       })
       .catch((cause: unknown) => {
-        if (!controller.signal.aborted && !isAbortError(cause)) setError(cause);
+        if (!controller.signal.aborted) setError(cause);
       });
 
     return () => controller.abort();
-  }, []);
+  }, [provider]);
 
   // Provider returns newest first; preserve that order for both series and sets.
   const groups = useMemo<SetGroup[]>(() => {
