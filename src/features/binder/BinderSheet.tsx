@@ -79,7 +79,14 @@ export const BinderSheet = memo(function BinderSheet({
       <div className={styles.pockets}>
         {sheet.slots.map((slot, index) => (
           <Pocket
-            key={slot.card ? slot.card.id : `empty-${sheet.id}-${index}`}
+            /*
+             * Keyed by position, not by card. A pocket *is* a position — and a
+             * card-id key breaks badly the moment the same id lands in two
+             * pockets (a set roster that repeats a card, say): React collapses
+             * the duplicates, one pocket's `data-pocket` node never reaches the
+             * DOM, and drag-and-drop hit-testing silently fails on it.
+             */
+            key={`${sheet.id}-${index}`}
             slot={slot}
             onOpen={onOpen}
             interactive={interactive}

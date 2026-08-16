@@ -14,6 +14,20 @@ interface SearchState {
   error: unknown;
 }
 
+/**
+ * Append a page, dropping ids already on screen.
+ *
+ * Paged APIs repeat rows across page boundaries — a set released mid-scroll,
+ * or a non-deterministic sort. Appending blind produced two grid items with the
+ * same React key, at which point React collapses them and the grid quietly
+ * loses a card.
+ */
+function appendUnique(existing: Card[], incoming: Card[]): Card[] {
+  const seen = new Set(existing.map((card) => card.id));
+  const fresh = incoming.filter((card) => !seen.has(card.id));
+  return fresh.length === incoming.length ? [...existing, ...incoming] : [...existing, ...fresh];
+}
+
 const INITIAL: SearchState = {
   cards: [],
   totalCount: 0,
@@ -67,7 +81,7 @@ export function useCardSearch(query: string, setId: string) {
         hasMoreRef.current = result.hasMore;
         busyRef.current = false;
         setState((prev) => ({
-          cards: mode === "append" ? [...prev.cards, ...result.items] : result.items,
+          cards: mode === "append" ? appendUnique(prev.cards, result.items) : result.items,
           totalCount: result.totalCount,
           hasMore: result.hasMore,
           loading: false,
