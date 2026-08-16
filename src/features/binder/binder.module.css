@@ -702,6 +702,12 @@
   padding: 26px;
   text-align: center;
   color: #3c372c;
+  /* A message laid on the pages, not a lid over them. Spanning the whole
+     binder at z-index 9 means any moment this renders while sleeves are
+     visible, every card underneath goes dead to clicks and drags with nothing
+     to explain why — so the overlay itself never takes the pointer, and only
+     the link below opts back in. */
+  pointer-events: none;
 }
 
 /* A card-sized note resting on the open pages, so the message stays readable
@@ -740,6 +746,9 @@
 }
 
 .emptyLink {
+  /* The one interactive thing in the overlay, so the one thing that re-enables
+     pointer events (the container sets `pointer-events: none`). */
+  pointer-events: auto;
   justify-self: center;
   margin-top: 4px;
   padding: 8px 18px;
