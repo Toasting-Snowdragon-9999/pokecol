@@ -3,10 +3,12 @@ import { AppHeader } from "./components/AppHeader";
 import { CollectionProvider } from "./collection/CollectionProvider";
 import { GameProvider } from "./game/GameProvider";
 import { useActiveGame } from "./game/context";
+import { SessionProvider } from "./auth/SessionProvider";
 import { WishlistProvider } from "./wishlist/WishlistProvider";
 import { FindCardsPage } from "./features/find/FindCardsPage";
 import { BinderPage } from "./features/binder/BinderPage";
 import { WishlistPage } from "./features/wishlist/WishlistPage";
+import { AccountPage } from "./features/account/AccountPage";
 import styles from "./App.module.css";
 
 /**
@@ -35,6 +37,8 @@ function Shell() {
           <Route path="/find" element={<FindCardsPage />} />
           <Route path="/collection" element={<BinderPage />} />
           <Route path="/wishlist" element={<WishlistPage />} />
+          {/* Not a gate — the binder works signed out. See AccountPage. */}
+          <Route path="/account" element={<AccountPage />} />
           <Route path="*" element={<Navigate to="/collection" replace />} />
         </Routes>
       </main>
@@ -44,15 +48,21 @@ function Shell() {
 
 export default function App() {
   return (
-    // Game first: the collection and wishlist stores both read from it.
-    <GameProvider>
-      <CollectionProvider>
-        <WishlistProvider>
-          <BrowserRouter>
-            <Shell />
-          </BrowserRouter>
-        </WishlistProvider>
-      </CollectionProvider>
-    </GameProvider>
+    /*
+     * Session first: every store below reads from a storage namespace that
+     * depends on who is signed in. Then game, which the collection and wishlist
+     * stores both read from.
+     */
+    <SessionProvider>
+      <GameProvider>
+        <CollectionProvider>
+          <WishlistProvider>
+            <BrowserRouter>
+              <Shell />
+            </BrowserRouter>
+          </WishlistProvider>
+        </CollectionProvider>
+      </GameProvider>
+    </SessionProvider>
   );
 }

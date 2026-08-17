@@ -1,4 +1,5 @@
 import { cardKey, DEFAULT_GAME } from "../../core/games";
+import { onStorageOwnerChange, scopedKey } from "../../lib/storageScope";
 import type { GameId } from "../../core/games";
 
 /**
@@ -92,7 +93,7 @@ function migrateLegacy(): StoredLayout | null {
 
 function readStored(): StoredLayout {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(scopedKey(STORAGE_KEY));
     if (!raw) return migrateLegacy() ?? { version: 2, byGame: {} };
 
     const parsed = JSON.parse(raw) as StoredLayout;
@@ -115,7 +116,7 @@ export function readLayout(gameId: GameId): CollectionLayout {
 
 function writeStored(stored: StoredLayout): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(stored));
   } catch {
     /* quota or private mode — in-session state is still correct */
   }
@@ -208,7 +209,7 @@ export function createLayoutStore(): LayoutStore {
   };
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY || event.key === null) {
+    if (event.key?.startsWith(STORAGE_KEY) || event.key === null) {
       // Another tab owns the layout now; replaying our snapshot over the top
       // would silently undo their move as well as ours.
       undoSlot = null;
@@ -216,6 +217,13 @@ export function createLayoutStore(): LayoutStore {
     }
   };
   if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+
+  // A different user means a different arrangement — and a pending undo from
+  // the previous one must not survive into it.
+  onStorageOwnerChange(() => {
+    undoSlot = null;
+    notify();
+  });
 
   return {
     read,

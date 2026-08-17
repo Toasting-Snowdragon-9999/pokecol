@@ -76,6 +76,24 @@ provider supports it. Cards with no published price are excluded and counted —
 "128 of 141 cards priced" — rather than quietly treated as worthless. It's an
 estimate of current market prices, not an appraisal, and says so.
 
+### Accounts
+
+CardCol works signed out and always will — an account **adds sync, it doesn't
+gate anything**. Signing in scopes your collections to an identity so two people
+sharing a laptop don't share a binder.
+
+Without a backend configured you get device-local profiles, and the login page
+says plainly that they're device-local and not a security measure. Set
+`VITE_SUPABASE_*` for real hosted accounts. See **[ACCOUNTS.md](ACCOUNTS.md)** —
+including what's built and what's still missing (the sync layer itself).
+
+### Install it on a phone
+
+CardCol is an installable PWA. The binder already works under touch — drag a
+card between sleeves, tap to inspect, swipe to turn the page — and once
+installed the shell and every card image you've seen are cached, so a filled
+binder opens with no signal.
+
 ### Also in there
 
 - **undo the last move** — mis-drop a card and take it back with the toolbar
@@ -110,6 +128,7 @@ switch game.
 | `npm test` | run the test suite once |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | oxlint |
+| `npm run preview` | serve the production build (needed to test the service worker) |
 
 ### API keys
 

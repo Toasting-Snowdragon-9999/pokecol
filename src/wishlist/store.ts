@@ -1,5 +1,8 @@
 import { DEFAULT_GAME } from "../core/games";
 import type { GameId } from "../core/games";
+import { live, now, pruneTombstones } from "../core/sync";
+import { onStorageOwnerChange, scopedKey } from "../lib/storageScope";
+import type { SyncMeta } from "../core/sync";
 
 /**
  * Cards you want but don't own.
@@ -12,7 +15,7 @@ import type { GameId } from "../core/games";
  * No folders, pages or pockets. A wishlist is a list you take to a trade, not
  * an object you arrange.
  */
-export interface WishlistEntry {
+export interface WishlistEntry extends SyncMeta {
   gameId: GameId;
   cardId: string;
   variantId: string;
@@ -35,10 +38,12 @@ export interface WishlistStore {
   subscribe(listener: () => void): () => void;
 }
 
-const STORAGE_KEY = "cardcol.wishlist.v1";
+const STORAGE_KEY = "cardcol.wishlist.v2";
+/** Pre-sync-metadata wishlist. Read once to migrate, then left as a rollback copy. */
+const LEGACY_V1_KEY = "cardcol.wishlist.v1";
 
 interface StoredShape {
-  version: 1;
+  version: 2;
   entries: WishlistEntry[];
 }
 
@@ -46,17 +51,35 @@ function isUsable(entry: Partial<WishlistEntry>): boolean {
   return typeof entry?.cardId === "string" && typeof entry?.variantId === "string";
 }
 
+function normaliseEntry(entry: Partial<WishlistEntry>): WishlistEntry {
+  const addedAt = entry.addedAt ?? now();
+  return {
+    ...(entry as WishlistEntry),
+    gameId: entry.gameId ?? DEFAULT_GAME,
+    addedAt,
+    updatedAt: entry.updatedAt ?? addedAt,
+  };
+}
+
 function readAll(): WishlistEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    const raw = localStorage.getItem(scopedKey(STORAGE_KEY));
+    if (raw) {
+      const parsed = JSON.parse(raw) as StoredShape;
+      if (parsed?.version !== 2 || !Array.isArray(parsed.entries)) return [];
+      return parsed.entries.filter(isUsable).map(normaliseEntry);
+    }
 
-    const parsed = JSON.parse(raw) as StoredShape;
-    if (parsed?.version !== 1 || !Array.isArray(parsed.entries)) return [];
+    const legacy = localStorage.getItem(LEGACY_V1_KEY);
+    if (!legacy) return [];
+    const parsed = JSON.parse(legacy) as { entries?: unknown };
+    if (!Array.isArray(parsed.entries)) return [];
 
-    return parsed.entries
+    const migrated = (parsed.entries as Partial<WishlistEntry>[])
       .filter(isUsable)
-      .map((entry) => ({ ...entry, gameId: entry.gameId ?? DEFAULT_GAME }));
+      .map(normaliseEntry);
+    write(migrated);
+    return migrated;
   } catch {
     return [];
   }
@@ -64,8 +87,8 @@ function readAll(): WishlistEntry[] {
 
 function write(entries: WishlistEntry[]): void {
   try {
-    const payload: StoredShape = { version: 1, entries };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const payload: StoredShape = { version: 2, entries: pruneTombstones(entries) };
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(payload));
   } catch {
     /* quota or private mode — in-session state is still correct */
   }
@@ -76,9 +99,11 @@ export function createLocalWishlistStore(): WishlistStore {
   const notify = () => listeners.forEach((listener) => listener());
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY || event.key === null) notify();
+    if (event.key?.startsWith(STORAGE_KEY) || event.key === null) notify();
   };
   if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+
+  onStorageOwnerChange(notify);
 
   const indexOf = (entries: WishlistEntry[], gameId: GameId, cardId: string, variantId: string) =>
     entries.findIndex(
@@ -88,16 +113,29 @@ export function createLocalWishlistStore(): WishlistStore {
   return {
     async list(gameId) {
       // Newest first: a wishlist is a working list, not an archive.
-      return readAll()
+      return live(readAll())
         .filter((entry) => entry.gameId === gameId)
         .sort((a, b) => b.addedAt.localeCompare(a.addedAt));
     },
 
     async add(gameId, cardId, variantId) {
       const entries = readAll();
-      if (indexOf(entries, gameId, cardId, variantId) >= 0) return;
+      const index = indexOf(entries, gameId, cardId, variantId);
+      const timestamp = now();
 
-      entries.push({ gameId, cardId, variantId, addedAt: new Date().toISOString() });
+      if (index >= 0) {
+        // Already wanted — unless it was removed, in which case revive the row.
+        if (!entries[index].deleted) return;
+        entries[index] = {
+          ...entries[index],
+          deleted: false,
+          addedAt: timestamp,
+          updatedAt: timestamp,
+        };
+      } else {
+        entries.push({ gameId, cardId, variantId, addedAt: timestamp, updatedAt: timestamp });
+      }
+
       write(entries);
       notify();
     },
@@ -105,9 +143,10 @@ export function createLocalWishlistStore(): WishlistStore {
     async remove(gameId, cardId, variantId) {
       const entries = readAll();
       const index = indexOf(entries, gameId, cardId, variantId);
-      if (index < 0) return;
+      if (index < 0 || entries[index].deleted) return;
 
-      entries.splice(index, 1);
+      // Tombstone, so another device learns this was removed.
+      entries[index] = { ...entries[index], deleted: true, updatedAt: now() };
       write(entries);
       notify();
     },
@@ -116,19 +155,43 @@ export function createLocalWishlistStore(): WishlistStore {
       if (from === to) return;
       const entries = readAll();
       const index = indexOf(entries, gameId, cardId, from);
-      if (index < 0) return;
+      if (index < 0 || entries[index].deleted) return;
 
-      // Wanting a printing you already listed collapses to one entry.
-      const existing = indexOf(entries, gameId, cardId, to);
-      if (existing >= 0) entries.splice(index, 1);
-      else entries[index] = { ...entries[index], variantId: to };
+      const timestamp = now();
+      const target = indexOf(entries, gameId, cardId, to);
+
+      /*
+       * The printing is part of the row's identity, so changing it is a delete
+       * plus an add rather than an edit — otherwise two devices could disagree
+       * about which row a given key refers to.
+       */
+      entries[index] = { ...entries[index], deleted: true, updatedAt: timestamp };
+
+      if (target >= 0) {
+        entries[target] = { ...entries[target], deleted: false, updatedAt: timestamp };
+      } else {
+        entries.push({
+          ...entries[index],
+          variantId: to,
+          deleted: false,
+          addedAt: entries[index].addedAt,
+          updatedAt: timestamp,
+        });
+      }
 
       write(entries);
       notify();
     },
 
     async clear(gameId) {
-      write(readAll().filter((entry) => entry.gameId !== gameId));
+      const timestamp = now();
+      write(
+        readAll().map((entry) =>
+          entry.gameId === gameId && !entry.deleted
+            ? { ...entry, deleted: true, updatedAt: timestamp }
+            : entry,
+        ),
+      );
       notify();
     },
 
