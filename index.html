@@ -2,19 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- `viewport-fit=cover` lets the binder reach under a notch; the safe-area
+         insets in global.css keep the chrome clear of it. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="color-scheme" content="dark light" />
     <meta
       name="description"
-      content="Browse the Pokémon TCG and keep your collection in a real binder."
+      content="Keep your Pokémon, Magic, Yu-Gi-Oh!, Star Wars, One Piece and Lorcana cards in a real binder."
     />
-    <!-- Card art comes straight off the API's CDNs; warm both connections early.
-         Older sets serve from pokemontcg.io, recent ones from scrydex.com. -->
+
+    <!-- Installable. `theme_color` is duplicated here because iOS reads the tag,
+         not the manifest. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f1116" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CardCol" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Card art comes straight off the providers' CDNs; warm the connections early. -->
     <link rel="preconnect" href="https://images.pokemontcg.io" crossorigin />
     <link rel="preconnect" href="https://images.scrydex.com" crossorigin />
+    <link rel="preconnect" href="https://cards.scryfall.io" crossorigin />
     <link rel="preconnect" href="https://api.pokemontcg.io" />
-    <title>PokéCol — your Pokémon card binder</title>
+    <title>CardCol — your trading card binder</title>
   </head>
   <body>
     <div id="root"></div>

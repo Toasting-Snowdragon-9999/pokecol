@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="CardCol">
+  <!--
+    A closed binder seen face-on: navy leather, a stitched border, and the ring
+    mechanism showing down the spine in the app's gold. Drawn to read at 48px —
+    no thin strokes, no detail that survives only at full size.
+  -->
+  <defs>
+    <linearGradient id="leather" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a4d7d"/>
+      <stop offset="46%" stop-color="#1b2745"/>
+      <stop offset="100%" stop-color="#111a30"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0c268"/>
+      <stop offset="55%" stop-color="#d9a441"/>
+      <stop offset="100%" stop-color="#a87c28"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2efe4"/>
+      <stop offset="100%" stop-color="#ddd8ca"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#leather)"/>
+
+  <!-- Page block peeking out of the fore-edge, so it reads as a binder holding
+       something rather than a plain rounded square. -->
+  <rect x="330" y="118" width="34" height="276" rx="9" fill="url(#page)" opacity="0.92"/>
+  <rect x="316" y="126" width="30" height="260" rx="8" fill="url(#page)" opacity="0.55"/>
+
+  <!-- Cover, inset so the leather frames it. -->
+  <rect x="118" y="104" width="212" height="304" rx="20" fill="#22305a"/>
+  <rect x="118" y="104" width="212" height="304" rx="20" fill="none"
+        stroke="#ffffff" stroke-opacity="0.14" stroke-width="4"/>
+  <rect x="134" y="120" width="180" height="272" rx="12" fill="none"
+        stroke="#ffffff" stroke-opacity="0.16" stroke-width="3" stroke-dasharray="12 10"/>
+
+  <!-- Spine and its three rings. -->
+  <rect x="150" y="104" width="20" height="304" fill="#0e1526" opacity="0.85"/>
+  <g fill="url(#ring)">
+    <rect x="139" y="150" width="42" height="26" rx="13"/>
+    <rect x="139" y="243" width="42" height="26" rx="13"/>
+    <rect x="139" y="336" width="42" height="26" rx="13"/>
+  </g>
+</svg>

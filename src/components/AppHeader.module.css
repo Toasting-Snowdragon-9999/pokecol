@@ -5,8 +5,10 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 0 22px;
-  height: 58px;
+  /* Grows into the notch when installed full-screen, so the nav never sits
+     under the status bar. Both insets are 0 in a normal browser tab. */
+  padding: var(--safe-top) calc(22px + var(--safe-right)) 0 calc(22px + var(--safe-left));
+  height: calc(58px + var(--safe-top));
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
